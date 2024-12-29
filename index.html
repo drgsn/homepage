@@ -732,6 +732,9 @@
       const allCards = document.querySelectorAll(".feed-container > div");
       allCards.forEach((item) => {
         const text = item.textContent.toLowerCase();
+        if (text.length == 0) {
+            refreshFeeds()
+        }
         item.style.display = text.includes(searchTerm) ? "block" : "none";
       });
     }
