@@ -33,10 +33,24 @@ const sourcesConfig = [
             },
         ],
         fetchFn: async function (settings) {
-            const url = buildGitHubSearchUrl(settings);
-            const resp = await fetch(url);
-            const data = await resp.json();
-            return data.items || [];
+            const languages = settings.language
+                .split(',')
+                .map((lang) => lang.trim().toLowerCase())
+                .filter(Boolean);
+
+            const fetchPromises = languages.length > 0 ? languages : [null];
+
+            const allItems = await Promise.all(
+                fetchPromises.map(async (language) => {
+                    const url = buildGitHubSearchUrl(settings, language);
+                    const resp = await fetch(url);
+                    const data = await resp.json();
+                    return data.items || [];
+                })
+            );
+
+            // Flatten the array of arrays and return
+            return allItems.flat();
         },
         transformItemFn: function (repo) {
             return {
@@ -206,16 +220,22 @@ function buildFiltersModal() {
     const modalContent = document.getElementById('filtersModalContent');
     modalContent.innerHTML = '';
 
+    const storedTheme = localStorage.getItem('mergedFeedTheme') || 'light';
+    const isDark = storedTheme === 'dark';
+
     sourcesConfig.forEach((source) => {
         const section = document.createElement('div');
-        section.className = 'bg-gray-50 dark:bg-gray-700 p-4 rounded-lg space-y-4';
+        section.className = isDark
+            ? 'bg-gray-700 p-4 rounded-lg space-y-4'
+            : 'bg-gray-50 p-4 rounded-lg space-y-4';
 
         const header = document.createElement('div');
         header.className = 'flex items-center justify-between mb-4';
 
         const title = document.createElement('h3');
-        title.className =
-            'text-md font-semibold text-gray-900 dark:text-gray-200 flex items-center';
+        title.className = isDark
+            ? 'text-md font-semibold text-black-200 flex items-center'
+            : 'text-md font-semibold text-gray-900 flex items-center';
         title.innerHTML = `${source.icon}${source.label} Settings`;
 
         header.appendChild(title);
@@ -258,11 +278,16 @@ function createToggleSwitch(sourceId, field) {
 }
 
 function createFilterField(sourceId, field) {
+    const storedTheme = localStorage.getItem('mergedFeedTheme') || 'light';
+    const isDark = storedTheme === 'dark';
+
     const container = document.createElement('div');
     container.className = 'space-y-2';
 
     const label = document.createElement('label');
-    label.className = 'block text-sm font-medium text-gray-700 dark:text-gray-300';
+    label.className = isDark
+        ? 'block text-sm font-medium text-gray-300'
+        : 'block text-sm font-medium text-gray-700';
     label.htmlFor = `${sourceId}_${field.key}`;
     label.textContent = field.label;
 
@@ -582,9 +607,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // Helper functions
-function buildGitHubSearchUrl(settings) {
+function buildGitHubSearchUrl(settings, language) {
     const baseUrl = 'https://api.github.com/search/repositories';
-    const perPage = 10;
+    const perPage = language ? 5 : 10; // Load 5 elements per language if multiple, 10 if one or none
     const queryParams = new URLSearchParams();
 
     // Ensure page is a valid number
@@ -618,20 +643,8 @@ function buildGitHubSearchUrl(settings) {
     queryParts.push(dateRange);
 
     // Add language filter if specified
-    if (settings.language) {
-        const languages = settings.language
-            .split(',')
-            .map((lang) => lang.trim().toLowerCase())
-            .filter(Boolean);
-
-        if (languages.length > 0) {
-            if (languages.length === 1) {
-                queryParts.push(`language:${languages[0]}`);
-            } else {
-                const languageQuery = languages.map((lang) => `language:${lang}`).join(' OR ');
-                queryParts.push(`(${languageQuery})`);
-            }
-        }
+    if (language) {
+        queryParts.push(`language:${language}`);
     }
 
     // Add base filters
