@@ -1,0 +1,200 @@
+/* Scrollbar styles */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-thumb {
+    background-color: rgba(37, 99, 235, 0.5);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-track {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+}
+
+/* Intersection observer trigger */
+#infiniteScrollTrigger {
+    visibility: hidden;
+}
+
+/* Modal animations */
+.modal-backdrop {
+    transition: opacity 0.3s ease;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    transform: scale(0.95);
+    opacity: 0;
+}
+
+.modal-active .modal-content {
+    transform: scale(1);
+    opacity: 1;
+}
+
+/* Light theme variables */
+:root {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #f1f5f9;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --border-color: #e2e8f0;
+    --card-bg: #ffffff;
+    --hover-bg: #f8fafc;
+    --navbar-bg: linear-gradient(135deg, #2563eb, #1d4ed8);
+    --modal-section-bg: #f8fafc;
+}
+
+/* Dark theme variables */
+.dark {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --border-color: #334155;
+    --card-bg: #1e293b;
+    --hover-bg: #334155;
+    --navbar-bg: linear-gradient(135deg, #1e40af, #1e3a8a);
+    --modal-section-bg: #1e293b;
+}
+
+/* Theme transition */
+body {
+    transition: background-color 0.3s ease, color 0.3s ease;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+/* Card theme styles */
+.theme-card {
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+.theme-card:hover {
+    background-color: var(--hover-bg);
+}
+
+/* Navbar theme styles */
+.theme-navbar {
+    background: var(--navbar-bg);
+    backdrop-filter: blur(8px);
+}
+
+/* Modal theme styles */
+.theme-modal {
+    background: var(--card-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+/* Modal section cards */
+.theme-modal-section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.dark .theme-modal-section {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+/* Modal section headings */
+.theme-modal-section h3 {
+    color: var(--text-primary);
+}
+
+/* Modal section text */
+.theme-modal-section label {
+    color: var(--text-primary);
+}
+
+/* Input theme styles */
+.theme-input {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+    transition: all 0.2s ease;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    width: 100%;
+    outline: none;
+    border: 1px solid var(--border-color);
+}
+
+.theme-input:focus {
+    border-color: #3b82f6;
+}
+
+.theme-input::placeholder {
+    color: var(--text-secondary);
+}
+
+/* Custom select styles */
+.theme-select {
+    appearance: none;
+    background-color: var(--bg-secondary);
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1em;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.5rem 2.5rem 0.5rem 1rem;
+    width: 100%;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    transition: all 0.2s ease;
+}
+
+.theme-select:hover {
+    background-color: var(--hover-bg);
+}
+
+.theme-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+/* Remove the custom select styles */
+.custom-select,
+.custom-select-button,
+.custom-select-options,
+.custom-select-option {
+    display: none;
+}
+
+/* Button styles */
+.btn {
+    transition: all 0.2s ease;
+    transform-origin: center;
+}
+
+.btn:active {
+    transform: scale(0.95);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+}
+
+/* Modal buttons */
+.theme-modal button.hover\:bg-gray-100:hover {
+    background: var(--bg-secondary);
+}
+
+/* Focus styles */
+.focus-visible:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
