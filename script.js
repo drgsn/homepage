@@ -42,12 +42,15 @@ const sourcesConfig = [
 
             const allItems = await Promise.all(
                 fetchPromises.map(async (language) => {
-                    const url = buildGitHubSearchUrl(settings, language);
-                    const resp = await fetch(url);
+                    const { url, headers } = buildGitHubSearchUrl(settings, language);
+                    const resp = await fetch(url, { headers });
                     const data = await resp.json();
                     return data.items || [];
                 })
             );
+
+            // Increment the page for the next fetch
+            settings.page += 1;
 
             // Flatten the array of arrays and return
             return allItems.flat();
@@ -420,12 +423,18 @@ function getSourceIcon(sourceName) {
 // Infinite scroll
 function setupIntersectionObserver() {
     const sentinel = document.getElementById('infiniteScrollTrigger');
-    observer = new IntersectionObserver(async (entries) => {
-        if (entries[0].isIntersecting) {
-            await fetchAllEnabledSources();
-            renderMergedFeed();
+    observer = new IntersectionObserver(
+        async (entries) => {
+            if (entries[0].isIntersecting) {
+                await fetchAllEnabledSources();
+                renderMergedFeed();
+            }
+        },
+        {
+            rootMargin: '0px',
+            threshold: 1.0,
         }
-    });
+    );
     observer.observe(sentinel);
 }
 
@@ -450,17 +459,22 @@ async function fetchAllEnabledSources() {
             try {
                 source.isLoading = true;
                 const items = await source.fetchFn(sourcesSettings[source.id]);
+
+                if (items.length === 0) {
+                    // No more items to fetch for this source
+                    return;
+                }
+
                 const transformedItems = items
                     .filter((item) => item) // Filter out null/undefined items
                     .map((item) => source.transformItemFn(item));
 
-                if (source.id === 'hackernews') {
-                    sourcesSettings[source.id].index += items.length;
-                } else {
-                    sourcesSettings[source.id].page += 1;
-                }
+                // Filter out duplicates
+                const newItems = transformedItems.filter((newItem) => {
+                    return !allItems.some((existingItem) => existingItem.url === newItem.url);
+                });
 
-                allItems.push(...transformedItems);
+                allItems.push(...newItems);
             } catch (error) {
                 console.error(`Error fetching from ${source.label}:`, error);
             } finally {
@@ -482,10 +496,22 @@ function renderMergedFeed() {
     const container = document.getElementById('feedContainer');
     container.innerHTML = '';
 
+    // Sort items by date in descending order (newest first)
     allItems.sort((a, b) => b.date - a.date);
+
+    // Render each item
     allItems.forEach((item) => {
         container.appendChild(createCard(item));
     });
+
+    // Show loading indicator if any source is still loading
+    const isLoading = sourcesConfig.some((source) => source.isLoading);
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    if (isLoading) {
+        loadingIndicator.classList.remove('hidden');
+    } else {
+        loadingIndicator.classList.add('hidden');
+    }
 }
 
 // Settings management
@@ -525,15 +551,15 @@ function applyFilters() {
 }
 
 async function resetAndRefetch() {
-    allItems = [];
+    allItems = []; // Clear the existing items
     sourcesConfig.forEach((source) => {
         if (source.id === 'hackernews') {
-            sourcesSettings[source.id].index = 0;
+            sourcesSettings[source.id].index = 0; // Reset Hacker News index
         } else {
-            sourcesSettings[source.id].page = 1;
+            sourcesSettings[source.id].page = 1; // Reset GitHub and Dev.to page
         }
     });
-    await initData();
+    await initData(); // Fetch new data
 }
 
 function openFiltersModal() {
@@ -609,7 +635,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Helper functions
 function buildGitHubSearchUrl(settings, language) {
     const baseUrl = 'https://api.github.com/search/repositories';
-    const perPage = language ? 5 : 10; // Load 5 elements per language if multiple, 10 if one or none
+    const perPage = 10; // Number of items per page
     const queryParams = new URLSearchParams();
 
     // Ensure page is a valid number
@@ -661,5 +687,13 @@ function buildGitHubSearchUrl(settings, language) {
     queryParams.set('page', page);
     queryParams.set('per_page', perPage);
 
-    return `${baseUrl}?${queryParams.toString()}`;
+    // Add headers for API version
+    const headers = {
+        Accept: 'application/vnd.github.v3+json', // Specify API version
+    };
+
+    return {
+        url: `${baseUrl}?${queryParams.toString()}`,
+        headers: headers,
+    };
 }
