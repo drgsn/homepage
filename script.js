@@ -192,6 +192,52 @@ const sourcesConfig = [
         },
         isLoading: false,
     },
+    {
+        id: 'medium',
+        label: 'Medium',
+        icon: '<i class="fa-brands fa-medium text-gray-600 dark:text-gray-300 mr-1"></i>',
+        defaultSettings: {
+            enabled: true,
+            tag: '',
+            page: 1,
+        },
+        fields: [
+            {
+                type: 'checkbox',
+                key: 'enabled',
+                label: 'Enable Medium?',
+            },
+            {
+                type: 'text',
+                key: 'tag',
+                label: 'Tag',
+                placeholder: 'e.g. technology',
+            },
+        ],
+        fetchFn: async function (settings) {
+            let url = `https://api.rss2json.com/v1/api.json?rss_url=https://medium.com/feed/tag/${
+                settings.tag || 'technology'
+            }&page=${settings.page}`;
+            const resp = await fetch(url);
+            const data = await resp.json();
+            settings.page += 1; // Increment the page for the next fetch
+            return data.items || [];
+        },
+        transformItemFn: function (article) {
+            return {
+                source: 'Medium',
+                title: article.title,
+                url: article.link,
+                date: new Date(article.pubDate),
+                imageUrl: article.thumbnail || '',
+                stats: {
+                    reactions: 0, // Medium API doesn't provide reactions
+                    comments: 0, // Medium API doesn't provide comments
+                },
+            };
+        },
+        isLoading: false,
+    },
 ];
 
 // Global state
@@ -556,7 +602,7 @@ async function resetAndRefetch() {
         if (source.id === 'hackernews') {
             sourcesSettings[source.id].index = 0; // Reset Hacker News index
         } else {
-            sourcesSettings[source.id].page = 1; // Reset GitHub and Dev.to page
+            sourcesSettings[source.id].page = 1; // Reset GitHub, Dev.to, and Medium page
         }
     });
     await initData(); // Fetch new data
