@@ -1,0 +1,2428 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<documents>
+<document index="1">
+<source>homepage/js/components/Card.js</source>
+<document_content>import { sourcesConfig } from &apos;../config/sourceConfig.js&apos;;
+
+export class Card {
+    static create(item) {
+        const card = document.createElement(&apos;article&apos;);
+        card.className = `
+            mb-6 inline-block w-full 
+            rounded-xl border shadow-sm
+            theme-card p-5
+        `;
+
+        card.innerHTML = this.generateCardHTML(item);
+        return card;
+    }
+
+    static generateCardHTML(item) {
+        const imageHtml = this.generateImageHTML(item);
+        const statsHtml = this.generateStatsHTML(item);
+
+        return `
+            &lt;div class=&quot;flex items-center mb-3 text-sm font-medium&quot;&gt;
+                ${this.getSourceIcon(item.source)}
+                &lt;span class=&quot;opacity-90&quot;&gt;${item.source}&lt;/span&gt;
+            &lt;/div&gt;
+
+            ${imageHtml}
+
+            &lt;a href=&quot;${item.url}&quot; 
+               target=&quot;_blank&quot;
+               class=&quot;block font-semibold text-lg mb-3 hover:text-blue-600 dark:hover:text-blue-400 transition-colors&quot;&gt;
+                ${item.title}
+            &lt;/a&gt;
+
+            &lt;div class=&quot;flex flex-col space-y-3&quot;&gt;
+                &lt;div class=&quot;text-sm text-gray-500 dark:text-gray-400&quot;&gt;
+                    ${dayjs(item.date).fromNow()}
+                &lt;/div&gt;
+                ${statsHtml}
+            &lt;/div&gt;
+        `;
+    }
+
+    static generateImageHTML(item) {
+        return item.imageUrl
+            ? `
+            &lt;a href=&quot;${item.url}&quot; target=&quot;_blank&quot;&gt;
+                &lt;div class=&quot;relative overflow-hidden rounded-lg mb-4 aspect-video&quot;&gt;
+                    &lt;img
+                        src=&quot;${item.imageUrl}&quot;
+                        alt=&quot;${item.title}&quot;
+                        class=&quot;w-full h-full object-cover hover:scale-105 transition-transform duration-300&quot;
+                        onerror=&quot;this.parentElement.style.display=&apos;none&apos;;&quot;
+                    /&gt;
+                &lt;/div&gt;
+            &lt;/a&gt;
+        `
+            : &apos;&apos;;
+    }
+
+    static generateStatsHTML(item) {
+        const baseClasses = &apos;flex items-center space-x-6 text-sm text-gray-600 dark:text-gray-400&apos;;
+        const iconClasses = &apos;text-blue-500 dark:text-blue-400&apos;;
+
+        switch (item.source) {
+            case &apos;GitHub&apos;:
+                return this.generateGitHubStats(item, baseClasses, iconClasses);
+            case &apos;HackerNews&apos;:
+                return this.generateHackerNewsStats(item, baseClasses, iconClasses);
+            case &apos;Dev.to&apos;:
+                return this.generateDevToStats(item, baseClasses, iconClasses);
+            default:
+                return &apos;&apos;;
+        }
+    }
+
+    static generateGitHubStats(item, baseClasses, iconClasses) {
+        return `
+            &lt;div class=&quot;${baseClasses}&quot;&gt;
+                &lt;span title=&quot;Stars&quot; class=&quot;flex items-center&quot;&gt;
+                    &lt;i class=&quot;fa-regular fa-star ${iconClasses} mr-2&quot;&gt;&lt;/i&gt;${item.stats.stars.toLocaleString()}
+                &lt;/span&gt;
+                &lt;span title=&quot;Issues&quot; class=&quot;flex items-center&quot;&gt;
+                    &lt;i class=&quot;fa-regular fa-circle-dot ${iconClasses} mr-2&quot;&gt;&lt;/i&gt;${item.stats.issues.toLocaleString()}
+                &lt;/span&gt;
+                &lt;span title=&quot;Forks&quot; class=&quot;flex items-center&quot;&gt;
+                    &lt;i class=&quot;fa-solid fa-code-fork ${iconClasses} mr-2&quot;&gt;&lt;/i&gt;${item.stats.forks.toLocaleString()}
+                &lt;/span&gt;
+            &lt;/div&gt;`;
+    }
+
+    static generateHackerNewsStats(item, baseClasses, iconClasses) {
+        return `
+            &lt;div class=&quot;${baseClasses}&quot;&gt;
+                &lt;span title=&quot;Points&quot; class=&quot;flex items-center&quot;&gt;
+                    &lt;i class=&quot;fa-solid fa-arrow-up ${iconClasses} mr-2&quot;&gt;&lt;/i&gt;${item.stats.points.toLocaleString()}
+                &lt;/span&gt;
+                &lt;span title=&quot;Comments&quot; class=&quot;flex items-center&quot;&gt;
+                    &lt;i class=&quot;fa-regular fa-comment ${iconClasses} mr-2&quot;&gt;&lt;/i&gt;${item.stats.comments.toLocaleString()}
+                &lt;/span&gt;
+            &lt;/div&gt;`;
+    }
+
+    static generateDevToStats(item, baseClasses, iconClasses) {
+        return `
+            &lt;div class=&quot;${baseClasses}&quot;&gt;
+                &lt;span title=&quot;Reactions&quot; class=&quot;flex items-center&quot;&gt;
+                    &lt;i class=&quot;fa-regular fa-heart ${iconClasses} mr-2&quot;&gt;&lt;/i&gt;${item.stats.reactions.toLocaleString()}
+                &lt;/span&gt;
+                &lt;span title=&quot;Comments&quot; class=&quot;flex items-center&quot;&gt;
+                    &lt;i class=&quot;fa-regular fa-comment ${iconClasses} mr-2&quot;&gt;&lt;/i&gt;${item.stats.comments.toLocaleString()}
+                &lt;/span&gt;
+            &lt;/div&gt;`;
+    }
+
+    static getSourceIcon(sourceName) {
+        const source = sourcesConfig.find(
+            (src) =&gt; src.label.toLowerCase() === sourceName.toLowerCase()
+        );
+        return source ? source.icon : &apos;&apos;;
+    }
+}
+</document_content>
+</document>
+<document index="2">
+<source>homepage/js/services/api/devToApi.js</source>
+<document_content>export class DevToApi {
+    static async fetchArticles(settings) {
+        let url = `https://dev.to/api/articles?per_page=10&amp;page=${settings.page}`;
+        
+        if (settings.tag) {
+            url += `&amp;tag=${settings.tag}`;
+        }
+        
+        switch (settings.sort) {
+            case &apos;rising&apos;:
+                url += &apos;&amp;top=7&apos;;
+                break;
+            case &apos;relevant&apos;:
+                url += &apos;&amp;top=30&apos;;
+                break;
+        }
+
+        const response = await fetch(url);
+        return response.json();
+    }
+
+    static transformResponse(article) {
+        return {
+            source: &apos;Dev.to&apos;,
+            title: article.title,
+            url: article.url,
+            date: new Date(article.published_at),
+            imageUrl: article.cover_image || &apos;&apos;,
+            stats: {
+                reactions: article.public_reactions_count,
+                comments: article.comments_count,
+            },
+        };
+    }
+}</document_content>
+</document>
+<document index="3">
+<source>homepage/js/config/sourceConfig.js</source>
+<document_content>export const sourcesConfig = [
+    {
+        id: &apos;github&apos;,
+        label: &apos;GitHub&apos;,
+        icon: &apos;&lt;i class=&quot;fa-brands fa-github text-gray-600 dark:text-gray-300 mr-1&quot;&gt;&lt;/i&gt;&apos;,
+        defaultSettings: {
+            enabled: true,
+            timePeriod: &apos;daily&apos;,
+            language: &apos;&apos;,
+            page: 1,
+        },
+        fields: [
+            {
+                type: &apos;checkbox&apos;,
+                key: &apos;enabled&apos;,
+                label: &apos;Enable GitHub?&apos;,
+            },
+            {
+                type: &apos;select&apos;,
+                key: &apos;timePeriod&apos;,
+                label: &apos;Time Period&apos;,
+                options: [&apos;daily&apos;, &apos;weekly&apos;, &apos;monthly&apos;],
+            },
+            {
+                type: &apos;text&apos;,
+                key: &apos;language&apos;,
+                label: &apos;Language(s)&apos;,
+                placeholder: &apos;e.g. javascript, python&apos;,
+            },
+        ],
+    },
+    {
+        id: &apos;hackernews&apos;,
+        label: &apos;Hacker News&apos;,
+        icon: &apos;&lt;i class=&quot;fa-brands fa-hacker-news text-orange-600 dark:text-orange-300 mr-1&quot;&gt;&lt;/i&gt;&apos;,
+        defaultSettings: {
+            enabled: true,
+            type: &apos;top&apos;,
+            minPoints: 0,
+            ids: [],
+            index: 0,
+        },
+        fields: [
+            {
+                type: &apos;checkbox&apos;,
+                key: &apos;enabled&apos;,
+                label: &apos;Enable Hacker News?&apos;,
+            },
+            {
+                type: &apos;select&apos;,
+                key: &apos;type&apos;,
+                label: &apos;Story Type&apos;,
+                options: [&apos;top&apos;, &apos;new&apos;, &apos;best&apos;],
+            },
+            {
+                type: &apos;number&apos;,
+                key: &apos;minPoints&apos;,
+                label: &apos;Minimum Points&apos;,
+                placeholder: &apos;e.g. 100&apos;,
+            },
+        ],
+    },
+    {
+        id: &apos;devto&apos;,
+        label: &apos;Dev.to&apos;,
+        icon: &apos;&lt;i class=&quot;fa-brands fa-dev text-green-600 dark:text-green-300 mr-1&quot;&gt;&lt;/i&gt;&apos;,
+        defaultSettings: {
+            enabled: true,
+            sort: &apos;recent&apos;,
+            tag: &apos;&apos;,
+            page: 1,
+        },
+        fields: [
+            {
+                type: &apos;checkbox&apos;,
+                key: &apos;enabled&apos;,
+                label: &apos;Enable Dev.to?&apos;,
+            },
+            {
+                type: &apos;select&apos;,
+                key: &apos;sort&apos;,
+                label: &apos;Sort By&apos;,
+                options: [&apos;recent&apos;, &apos;rising&apos;, &apos;relevant&apos;],
+            },
+            {
+                type: &apos;text&apos;,
+                key: &apos;tag&apos;,
+                label: &apos;Tag&apos;,
+                placeholder: &apos;e.g. react&apos;,
+            },
+        ],
+    },
+];
+</document_content>
+</document>
+<document index="4">
+<source>homepage/js/services/api/hackerNewsApi.js</source>
+<document_content>export class HackerNewsApi {
+    static async fetchStories(settings) {
+        const startIndex = settings.index;
+        const endIndex = startIndex + 10;
+        const slice = settings.ids.slice(startIndex, endIndex);
+
+        const stories = await Promise.all(slice.map((id) =&gt; this.fetchStory(id)));
+
+        settings.index = endIndex;
+        return stories;
+    }
+
+    static async fetchStory(id) {
+        const response = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`);
+        return response.json();
+    }
+
+    static async fetchStoryIds(type) {
+        const response = await fetch(`https://hacker-news.firebaseio.com/v0/${type}stories.json`);
+        return response.json();
+    }
+
+    static transformResponse(story) {
+        return {
+            source: &apos;HackerNews&apos;,
+            title: story.title,
+            url: story.url || `https://news.ycombinator.com/item?id=${story.id}`,
+            date: new Date(story.time * 1000),
+            imageUrl: &apos;&apos;,
+            stats: {
+                points: story.score,
+                comments: story.descendants || 0,
+            },
+        };
+    }
+}
+</document_content>
+</document>
+<document index="5">
+<source>homepage/js/services/api/githubApi.js</source>
+<document_content>import { buildDateRange } from &apos;../../utils/dateUtils.js&apos;;
+
+export class GitHubApi {
+    static async fetchRepositories(settings, language) {
+        const { url, headers } = this.buildSearchUrl(settings, language);
+        const response = await fetch(url, { headers });
+        const data = await response.json();
+        return data.items || [];
+    }
+
+    static buildSearchUrl(settings, language) {
+        const baseUrl = &apos;https://api.github.com/search/repositories&apos;;
+        const queryParams = new URLSearchParams();
+        const page = parseInt(settings.page) || 1;
+        const queryParts = [];
+        
+        queryParts.push(buildDateRange(new Date(), settings.timePeriod));
+        
+        if (language) {
+            queryParts.push(`language:${language}`);
+        }
+        
+        queryParts.push(&apos;is:public&apos;, &apos;archived:false&apos;);
+
+        queryParams.set(&apos;q&apos;, queryParts.join(&apos; &apos;));
+        queryParams.set(&apos;sort&apos;, &apos;stars&apos;);
+        queryParams.set(&apos;order&apos;, &apos;desc&apos;);
+        queryParams.set(&apos;page&apos;, page);
+        queryParams.set(&apos;per_page&apos;, 10);
+
+        return {
+            url: `${baseUrl}?${queryParams.toString()}`,
+            headers: {
+                Accept: &apos;application/vnd.github.v3+json&apos;,
+            },
+        };
+    }
+
+    static transformResponse(repo) {
+        return {
+            source: &apos;GitHub&apos;,
+            title: repo.full_name,
+            url: repo.html_url,
+            date: new Date(repo.created_at),
+            imageUrl: repo.owner?.avatar_url || &apos;&apos;,
+            stats: {
+                stars: repo.stargazers_count,
+                issues: repo.open_issues_count,
+                forks: repo.forks_count,
+            },
+        };
+    }
+}</document_content>
+</document>
+<document index="6">
+<source>homepage/index.html</source>
+<document_content>&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;en&quot;&gt;
+    &lt;head&gt;
+        &lt;meta charset=&quot;UTF-8&quot; /&gt;
+        &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot; /&gt;
+        &lt;title&gt;Dev News&lt;/title&gt;
+
+        &lt;!-- Tailwind CSS --&gt;
+        &lt;script src=&quot;https://cdn.tailwindcss.com&quot;&gt;&lt;/script&gt;
+
+        &lt;!-- Font Awesome --&gt;
+        &lt;link
+            rel=&quot;stylesheet&quot;
+            href=&quot;https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css&quot;
+            integrity=&quot;sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==&quot;
+            crossorigin=&quot;anonymous&quot;
+            referrerpolicy=&quot;no-referrer&quot;
+        /&gt;
+
+        &lt;!-- Day.js --&gt;
+        &lt;script src=&quot;https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js&quot;&gt;&lt;/script&gt;
+        &lt;script src=&quot;https://cdn.jsdelivr.net/npm/dayjs@1/plugin/relativeTime.js&quot;&gt;&lt;/script&gt;
+
+        &lt;!-- Custom CSS --&gt;
+        &lt;link rel=&quot;stylesheet&quot; href=&quot;styles.css&quot; /&gt;
+    &lt;/head&gt;
+
+    &lt;body
+        class=&quot;bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen flex flex-col transition-colors duration-300 relative pb-16 sm:pb-0&quot;
+    &gt;
+        &lt;!-- Top navbar --&gt;
+        &lt;header class=&quot;sticky top-0 z-10 shadow-lg theme-navbar backdrop-blur-sm&quot;&gt;
+            &lt;div class=&quot;max-w-7xl mx-auto px-4 sm:px-6 lg:px-8&quot;&gt;
+                &lt;div class=&quot;flex items-center justify-between h-16&quot;&gt;
+                    &lt;!-- Title and search container --&gt;
+                    &lt;div class=&quot;flex items-center flex-1&quot;&gt;
+                        &lt;!-- Title - hidden on mobile --&gt;
+                        &lt;h1 class=&quot;text-xl font-bold text-white tracking-wide mr-4 hidden sm:block&quot;&gt;
+                            Dev News
+                        &lt;/h1&gt;
+
+                        &lt;!-- Search - full width on mobile --&gt;
+                        &lt;form
+                            id=&quot;searchForm&quot;
+                            action=&quot;&quot;
+                            method=&quot;GET&quot;
+                            target=&quot;_blank&quot;
+                            class=&quot;flex items-center bg-white/10 rounded-full px-3 focus-within:bg-white/20 transition-all duration-300 border border-white/20 flex-1 max-w-3xl&quot;
+                        &gt;
+                            &lt;input
+                                type=&quot;text&quot;
+                                id=&quot;searchInput&quot;
+                                name=&quot;q&quot;
+                                placeholder=&quot;Search...&quot;
+                                autocomplete=&quot;off&quot;
+                                class=&quot;w-full bg-transparent border-none focus:outline-none py-2 px-2 text-white placeholder-white/70&quot;
+                            /&gt;
+                            &lt;button
+                                type=&quot;submit&quot;
+                                class=&quot;p-2 text-white hover:text-blue-200 transition-colors btn&quot;
+                                aria-label=&quot;Search&quot;
+                            &gt;
+                                &lt;i class=&quot;fa-solid fa-magnifying-glass&quot;&gt;&lt;/i&gt;
+                            &lt;/button&gt;
+                        &lt;/form&gt;
+                    &lt;/div&gt;
+
+                    &lt;!-- Desktop action buttons --&gt;
+                    &lt;div class=&quot;hidden sm:flex items-center space-x-4&quot;&gt;
+                        &lt;button
+                            id=&quot;openFilters&quot;
+                            class=&quot;p-2 hover:bg-white/10 rounded-full transition-all text-white hover:text-blue-200 btn&quot;
+                            aria-label=&quot;Open filters&quot;
+                        &gt;
+                            &lt;i class=&quot;fa-solid fa-filter&quot;&gt;&lt;/i&gt;
+                        &lt;/button&gt;
+                        &lt;button
+                            id=&quot;themeToggle&quot;
+                            class=&quot;p-2 hover:bg-white/10 rounded-full transition-all text-white hover:text-blue-200 btn&quot;
+                            aria-label=&quot;Toggle theme&quot;
+                        &gt;
+                            &lt;i class=&quot;fa-solid fa-moon&quot;&gt;&lt;/i&gt;
+                        &lt;/button&gt;
+                        &lt;button
+                            id=&quot;refreshButton&quot;
+                            class=&quot;p-2 hover:bg-white/10 rounded-full transition-all text-white hover:text-blue-200 btn&quot;
+                            aria-label=&quot;Refresh feed&quot;
+                        &gt;
+                            &lt;i class=&quot;fa-solid fa-rotate-right&quot;&gt;&lt;/i&gt;
+                        &lt;/button&gt;
+                        &lt;a
+                            href=&quot;https://github.com/drgsn/homepage&quot;
+                            target=&quot;_blank&quot;
+                            class=&quot;p-2 text-white hover:text-blue-200 transition-colors btn&quot;
+                            aria-label=&quot;GitHub Repository&quot;
+                        &gt;
+                            &lt;i class=&quot;fa-brands fa-github&quot;&gt;&lt;/i&gt;
+                        &lt;/a&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/header&gt;
+
+        &lt;!-- Main content --&gt;
+        &lt;main
+            class=&quot;flex-1 p-4 sm:p-6 transition-colors duration-300&quot;
+            style=&quot;background-color: var(--bg-primary)&quot;
+        &gt;
+            &lt;!-- Feed container --&gt;
+            &lt;div
+                id=&quot;feedContainer&quot;
+                class=&quot;columns-1 sm:columns-2 lg:columns-3 2xl:columns-4 gap-6 [column-fill:_balance] max-w-7xl mx-auto&quot;
+            &gt;
+                &lt;!-- Cards will be dynamically inserted here --&gt;
+            &lt;/div&gt;
+
+            &lt;!-- Loading indicator --&gt;
+            &lt;div id=&quot;loadingIndicator&quot; class=&quot;text-center py-4 text-gray-500 hidden&quot;&gt;
+                Loading more items...
+            &lt;/div&gt;
+
+            &lt;!-- Infinite scroll trigger --&gt;
+            &lt;div id=&quot;infiniteScrollTrigger&quot; class=&quot;h-1&quot;&gt;&lt;/div&gt;
+        &lt;/main&gt;
+
+        &lt;!-- Filters modal --&gt;
+        &lt;div
+            id=&quot;filtersModal&quot;
+            class=&quot;fixed inset-0 bg-black/40 dark:bg-black/60 z-50 hidden justify-center items-center modal-backdrop&quot;
+            role=&quot;dialog&quot;
+            aria-modal=&quot;true&quot;
+        &gt;
+            &lt;div
+                class=&quot;p-6 rounded-xl shadow-xl max-w-4xl w-full relative modal-content max-h-[90vh] flex flex-col m-4 theme-modal&quot;
+            &gt;
+                &lt;!-- Modal header --&gt;
+                &lt;div
+                    class=&quot;flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-4&quot;
+                &gt;
+                    &lt;h2 class=&quot;text-xl font-semibold flex items-center&quot;&gt;
+                        &lt;i class=&quot;fa-solid fa-filter text-blue-600 mr-2&quot;&gt;&lt;/i&gt;
+                        Feed Filters
+                    &lt;/h2&gt;
+                    &lt;button
+                        id=&quot;closeFilters&quot;
+                        class=&quot;p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition&quot;
+                        aria-label=&quot;Close modal&quot;
+                    &gt;
+                        &lt;i class=&quot;fa-solid fa-xmark text-xl opacity-70 hover:opacity-100&quot;&gt;&lt;/i&gt;
+                    &lt;/button&gt;
+                &lt;/div&gt;
+
+                &lt;!-- Modal content --&gt;
+                &lt;div id=&quot;filtersModalContent&quot; class=&quot;space-y-6 overflow-y-auto flex-1 my-6&quot;&gt;
+                    &lt;!-- Filter sections will be dynamically inserted here --&gt;
+                &lt;/div&gt;
+
+                &lt;!-- Modal footer --&gt;
+                &lt;div
+                    class=&quot;flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700 space-x-3&quot;
+                &gt;
+                    &lt;button
+                        id=&quot;cancelFiltersBtn&quot;
+                        class=&quot;px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition flex items-center&quot;
+                    &gt;
+                        &lt;i class=&quot;fa-solid fa-xmark mr-2 opacity-70&quot;&gt;&lt;/i&gt;
+                        Cancel
+                    &lt;/button&gt;
+                    &lt;button
+                        id=&quot;applyFiltersBtn&quot;
+                        class=&quot;px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transition flex items-center shadow-sm&quot;
+                    &gt;
+                        &lt;i class=&quot;fa-solid fa-check mr-2&quot;&gt;&lt;/i&gt;
+                        Apply Filters
+                    &lt;/button&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;!-- Mobile bottom navigation bar --&gt;
+        &lt;nav
+            class=&quot;fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 shadow-lg sm:hidden z-50&quot;
+        &gt;
+            &lt;div class=&quot;flex items-center justify-around h-16 px-4&quot;&gt;
+                &lt;button
+                    id=&quot;mobileOpenFilters&quot;
+                    class=&quot;p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors btn&quot;
+                    aria-label=&quot;Open filters&quot;
+                &gt;
+                    &lt;i class=&quot;fa-solid fa-filter&quot;&gt;&lt;/i&gt;
+                &lt;/button&gt;
+                &lt;button
+                    id=&quot;mobileThemeToggle&quot;
+                    class=&quot;p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors btn&quot;
+                    aria-label=&quot;Toggle theme&quot;
+                &gt;
+                    &lt;i class=&quot;fa-solid fa-moon&quot;&gt;&lt;/i&gt;
+                &lt;/button&gt;
+                &lt;button
+                    id=&quot;mobileScrollToTop&quot;
+                    class=&quot;p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors btn&quot;
+                    aria-label=&quot;Scroll to top&quot;
+                &gt;
+                    &lt;i class=&quot;fa-solid fa-arrow-up&quot;&gt;&lt;/i&gt;
+                &lt;/button&gt;
+                &lt;button
+                    id=&quot;mobileRefreshButton&quot;
+                    class=&quot;p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors btn&quot;
+                    aria-label=&quot;Refresh feed&quot;
+                &gt;
+                    &lt;i class=&quot;fa-solid fa-rotate-right&quot;&gt;&lt;/i&gt;
+                &lt;/button&gt;
+                &lt;a
+                    href=&quot;https://github.com/drgsn/homepage&quot;
+                    target=&quot;_blank&quot;
+                    class=&quot;p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors btn&quot;
+                    aria-label=&quot;GitHub Repository&quot;
+                &gt;
+                    &lt;i class=&quot;fa-brands fa-github&quot;&gt;&lt;/i&gt;
+                &lt;/a&gt;
+            &lt;/div&gt;
+        &lt;/nav&gt;
+
+        &lt;!-- Custom JavaScript --&gt;
+        &lt;script type=&quot;module&quot; src=&quot;js/index.js&quot;&gt;&lt;/script&gt;
+    &lt;/body&gt;
+&lt;/html&gt;
+</document_content>
+</document>
+<document index="7">
+<source>homepage/js/services/search/CommandHandler.js</source>
+<document_content>export class CommandHandler {
+    constructor() {
+        this.commands = {
+            &apos;!help&apos;: this.showHelp,
+            &apos;!settings&apos;: () =&gt; document.getElementById(&apos;openFilters&apos;)?.click(),
+            &apos;!refresh&apos;: () =&gt; document.getElementById(&apos;refreshButton&apos;)?.click(),
+            &apos;!theme&apos;: () =&gt; document.getElementById(&apos;themeToggle&apos;)?.click(),
+            &apos;!top&apos;: () =&gt; window.scrollTo({ top: 0, behavior: &apos;smooth&apos; }),
+        };
+    }
+
+    handle(command) {
+        const cmd = this.commands[command.toLowerCase()];
+        if (cmd) {
+            cmd();
+            return true;
+        }
+        return false;
+    }
+
+    showHelp() {
+        const commands = [
+            { command: &apos;!help&apos;, description: &apos;Show this help menu&apos; },
+            { command: &apos;!settings&apos;, description: &apos;Open feed settings&apos; },
+            { command: &apos;!refresh&apos;, description: &apos;Refresh the feed&apos; },
+            { command: &apos;!theme&apos;, description: &apos;Toggle dark/light theme&apos; },
+            { command: &apos;!top&apos;, description: &apos;Scroll to top&apos; },
+        ];
+
+        const siteCommands = [
+            { prefix: &apos;youtube:&apos;, alias: &apos;yt:&apos;, description: &apos;Search YouTube&apos; },
+            { prefix: &apos;github:&apos;, alias: &apos;gh:&apos;, description: &apos;Search GitHub&apos; },
+            { prefix: &apos;stackoverflow:&apos;, alias: &apos;so:&apos;, description: &apos;Search Stack Overflow&apos; },
+            {
+                prefix: &apos;reddit:&apos;,
+                alias: &apos;r:&apos;,
+                description: &apos;Search Reddit (r:programming js for subreddit)&apos;,
+            },
+            { prefix: &apos;twitter:&apos;, alias: &apos;x:&apos;, description: &apos;Search Twitter/X&apos; },
+            { prefix: &apos;npm:&apos;, description: &apos;Search NPM packages&apos; },
+            { prefix: &apos;mdn:&apos;, alias: &apos;docs:&apos;, description: &apos;Search MDN documentation&apos; },
+            { prefix: &apos;devto:&apos;, alias: &apos;dev:&apos;, description: &apos;Search Dev.to&apos; },
+            { prefix: &apos;maps:&apos;, description: &apos;Search Google Maps&apos; },
+            { prefix: &apos;wiki:&apos;, description: &apos;Search Wikipedia&apos; },
+        ];
+
+        const modal = document.createElement(&apos;div&apos;);
+        modal.className =
+            &apos;fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex justify-center items-center modal-backdrop&apos;;
+
+        modal.innerHTML = this.generateHelpModalContent(commands, siteCommands);
+        document.body.appendChild(modal);
+
+        const closeModal = () =&gt; modal.remove();
+        modal.querySelector(&apos;#closeHelpModal&apos;).addEventListener(&apos;click&apos;, closeModal);
+        modal.addEventListener(&apos;click&apos;, (e) =&gt; {
+            if (e.target === modal) closeModal();
+        });
+        document.addEventListener(&apos;keydown&apos;, (e) =&gt; {
+            if (e.key === &apos;Escape&apos;) closeModal();
+        });
+    }
+
+    generateHelpModalContent(commands, siteCommands) {
+        return `
+            &lt;div class=&quot;bg-white dark:bg-gray-800 p-6 rounded-xl shadow-xl max-w-2xl w-full m-4 max-h-[90vh] overflow-y-auto&quot;&gt;
+                &lt;div class=&quot;flex justify-between items-center mb-4&quot;&gt;
+                    &lt;h2 class=&quot;text-xl font-semibold&quot;&gt;Search Help&lt;/h2&gt;
+                    &lt;button class=&quot;p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition&quot; id=&quot;closeHelpModal&quot;&gt;
+                        &lt;i class=&quot;fa-solid fa-xmark text-xl opacity-70 hover:opacity-100&quot;&gt;&lt;/i&gt;
+                    &lt;/button&gt;
+                &lt;/div&gt;
+
+                &lt;div class=&quot;space-y-6&quot;&gt;
+                    &lt;!-- Commands Section --&gt;
+                    &lt;div&gt;
+                        &lt;h3 class=&quot;text-lg font-semibold mb-2&quot;&gt;Commands&lt;/h3&gt;
+                        &lt;div class=&quot;space-y-2&quot;&gt;
+                            ${commands
+                                .map(
+                                    ({ command, description }) =&gt; `
+                                &lt;div class=&quot;flex items-center space-x-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded&quot;&gt;
+                                    &lt;code class=&quot;bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded font-mono&quot;&gt;${command}&lt;/code&gt;
+                                    &lt;span&gt;${description}&lt;/span&gt;
+                                &lt;/div&gt;
+                            `
+                                )
+                                .join(&apos;&apos;)}
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+
+                    &lt;!-- Site Search Section --&gt;
+                    &lt;div&gt;
+                        &lt;h3 class=&quot;text-lg font-semibold mb-2&quot;&gt;Site-Specific Searches&lt;/h3&gt;
+                        &lt;div class=&quot;space-y-2&quot;&gt;
+                            ${siteCommands
+                                .map(
+                                    ({ prefix, alias, description }) =&gt; `
+                                &lt;div class=&quot;flex items-center space-x-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded&quot;&gt;
+                                    &lt;div class=&quot;flex-none&quot;&gt;
+                                        &lt;code class=&quot;bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded font-mono&quot;&gt;${prefix}&lt;/code&gt;
+                                        ${
+                                            alias
+                                                ? `&lt;code class=&quot;bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded font-mono ml-1&quot;&gt;${alias}&lt;/code&gt;`
+                                                : &apos;&apos;
+                                        }
+                                    &lt;/div&gt;
+                                    &lt;span&gt;${description}&lt;/span&gt;
+                                &lt;/div&gt;
+                            `
+                                )
+                                .join(&apos;&apos;)}
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+
+                    &lt;!-- Examples Section --&gt;
+                    &lt;div&gt;
+                        &lt;h3 class=&quot;text-lg font-semibold mb-2&quot;&gt;Examples&lt;/h3&gt;
+                        &lt;div class=&quot;space-y-2&quot;&gt;
+                            &lt;div class=&quot;p-2 bg-gray-50 dark:bg-gray-700/50 rounded&quot;&gt;
+                                &lt;code class=&quot;font-mono&quot;&gt;youtube: javascript tutorial&lt;/code&gt;
+                                &lt;p class=&quot;text-sm text-gray-600 dark:text-gray-400 mt-1&quot;&gt;Searches YouTube for JavaScript tutorials&lt;/p&gt;
+                            &lt;/div&gt;
+                            &lt;div class=&quot;p-2 bg-gray-50 dark:bg-gray-700/50 rounded&quot;&gt;
+                                &lt;code class=&quot;font-mono&quot;&gt;r: programming&lt;/code&gt;
+                                &lt;p class=&quot;text-sm text-gray-600 dark:text-gray-400 mt-1&quot;&gt;Goes to r/programming subreddit&lt;/p&gt;
+                            &lt;/div&gt;
+                            &lt;div class=&quot;p-2 bg-gray-50 dark:bg-gray-700/50 rounded&quot;&gt;
+                                &lt;code class=&quot;font-mono&quot;&gt;gh: react hooks&lt;/code&gt;
+                                &lt;p class=&quot;text-sm text-gray-600 dark:text-gray-400 mt-1&quot;&gt;Searches GitHub for React hooks&lt;/p&gt;
+                            &lt;/div&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+        `;
+    }
+}
+</document_content>
+</document>
+<document index="8">
+<source>homepage/js/services/search/SearchHistory.js</source>
+<document_content>import { searchPatterns } from &apos;./utils/searchPatterns.js&apos;;
+import { getQueryType, getUrlFromQuery } from &apos;./utils/searchUtils.js&apos;;
+
+export class SearchHistory {
+    constructor(maxSize = 100) {
+        this.maxSize = maxSize;
+        this.key = &apos;searchHistory&apos;;
+        this.items = this.load();
+    }
+
+    load() {
+        try {
+            return JSON.parse(localStorage.getItem(this.key) || &apos;[]&apos;).map((item) =&gt; ({
+                ...item,
+                timestamp: new Date(item.timestamp),
+            }));
+        } catch {
+            return [];
+        }
+    }
+
+    save() {
+        localStorage.setItem(this.key, JSON.stringify(this.items));
+    }
+
+    add(query, tags = []) {
+        const type = getQueryType(query);
+        const category = this.categorizeQuery(query);
+        const existingIndex = this.items.findIndex((item) =&gt; item.query === query);
+
+        if (existingIndex !== -1) {
+            const existing = this.items[existingIndex];
+            this.items.splice(existingIndex, 1);
+            this.items.unshift({
+                ...existing,
+                timestamp: Date.now(),
+                count: existing.count + 1,
+                tags: [...new Set([...existing.tags, ...tags, category])],
+            });
+        } else {
+            this.items.unshift({
+                query,
+                timestamp: Date.now(),
+                type,
+                category,
+                tags: [...new Set([...tags, category])],
+                count: 1,
+                url: getUrlFromQuery(query),
+            });
+        }
+
+        if (this.items.length &gt; this.maxSize) {
+            this.items = this.items.slice(0, this.maxSize);
+        }
+
+        this.save();
+    }
+
+    search(prefix, options = {}) {
+        const { limit = 8, categoryFilter = null, typeFilter = null } = options;
+
+        return this.items
+            .filter((item) =&gt; {
+                const matchesPrefix = item.query.toLowerCase().includes(prefix.toLowerCase());
+                const matchesCategory = !categoryFilter || item.category === categoryFilter;
+                const matchesType = !typeFilter || item.type === typeFilter;
+                return matchesPrefix &amp;&amp; matchesCategory &amp;&amp; matchesType;
+            })
+            .sort((a, b) =&gt; {
+                if (b.count !== a.count) return b.count - a.count;
+                return b.timestamp - a.timestamp;
+            })
+            .slice(0, limit);
+    }
+
+    categorizeQuery(query) {
+        for (const [category, pattern] of Object.entries(searchPatterns)) {
+            if (pattern.test(query)) return category;
+        }
+        return getQueryType(query);
+    }
+
+    clearHistory() {
+        this.items = [];
+        this.save();
+    }
+}
+</document_content>
+</document>
+<document index="9">
+<source>homepage/js/services/search/SearchAutocomplete.js</source>
+<document_content>import { siteSearchPatterns } from &apos;./utils/searchPatterns.js&apos;;
+
+export class SearchAutocomplete {
+    constructor(input, onSelect) {
+        this.input = input;
+        this.onSelect = onSelect;
+        this.dropdown = this.createDropdown();
+        this.visible = false;
+        this.selectedIndex = -1;
+        this.suggestions = [];
+        this.lastCommand = null;
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        this.input.addEventListener(&apos;keydown&apos;, (e) =&gt; {
+            if (e.key === &apos;Backspace&apos; &amp;&amp; this.lastCommand) {
+                const cursorPosition = this.input.selectionStart;
+                const valueBeforeCursor = this.input.value.substring(0, cursorPosition);
+
+                if (valueBeforeCursor === this.lastCommand) {
+                    e.preventDefault();
+                    this.input.value = this.input.value.substring(
+                        0,
+                        cursorPosition - this.lastCommand.length
+                    );
+                    this.input.selectionStart = this.input.selectionEnd = this.input.value.length;
+                    this.lastCommand = null;
+                }
+            }
+        });
+
+        // Add animation when dropdown appears
+        this.dropdown.addEventListener(&apos;transitionend&apos;, () =&gt; {
+            if (!this.visible) {
+                this.dropdown.style.display = &apos;none&apos;;
+            }
+        });
+    }
+
+    createDropdown() {
+        const dropdown = document.createElement(&apos;div&apos;);
+        dropdown.className = `
+            absolute left-0 right-0 top-14
+            bg-white dark:bg-gray-800 
+            rounded-xl shadow-lg 
+            border border-gray-200/50 dark:border-gray-700/50
+            overflow-hidden hidden z-50
+            max-h-[85vh] overflow-y-auto
+            backdrop-blur-sm
+            transition-all duration-200 ease-out
+            translate-y-1 opacity-0 scale-98
+        `;
+        this.input.parentNode.appendChild(dropdown);
+        return dropdown;
+    }
+
+    detectSearchType(value) {
+        if (value.startsWith(&apos;!&apos;)) {
+            return {
+                type: &apos;command&apos;,
+                icon: &apos;fa-terminal&apos;,
+                tag: &apos;Command Mode&apos;,
+                description: &apos;Execute system command&apos;,
+                color: &apos;blue&apos;,
+            };
+        }
+
+        for (const [prefix, info] of Object.entries(siteSearchPatterns)) {
+            if (value.toLowerCase().startsWith(prefix.toLowerCase())) {
+                if (value.toLowerCase() === prefix.toLowerCase()) {
+                    this.lastCommand = prefix;
+                    this.input.value = prefix;
+                    const cursorPos = this.input.value.length;
+                    this.input.setSelectionRange(cursorPos, cursorPos);
+                }
+                return {
+                    type: &apos;site-search&apos;,
+                    ...info,
+                    description: `Search ${info.tag.split(&apos; &apos;)[0]}`,
+                };
+            }
+        }
+
+        this.lastCommand = null;
+        return null;
+    }
+
+    show(items) {
+        this.suggestions = items;
+        this.selectedIndex = -1;
+
+        if (items.length === 0) {
+            this.hide();
+            return;
+        }
+
+        const searchType = this.detectSearchType(this.input.value);
+        let dropdownContent = &apos;&apos;;
+
+        if (searchType) {
+            const colorClasses = {
+                blue: &apos;from-blue-500/20 to-blue-600/20 text-blue-600 dark:text-blue-400&apos;,
+                red: &apos;from-red-500/20 to-red-600/20 text-red-600 dark:text-red-400&apos;,
+                orange: &apos;from-orange-500/20 to-orange-600/20 text-orange-600 dark:text-orange-400&apos;,
+                green: &apos;from-green-500/20 to-green-600/20 text-green-600 dark:text-green-400&apos;,
+                slate: &apos;from-slate-500/20 to-slate-600/20 text-slate-600 dark:text-slate-400&apos;,
+            };
+
+            dropdownContent += `
+                &lt;div class=&quot;relative&quot;&gt;
+                    &lt;div class=&quot;p-4 bg-gradient-to-r ${
+                        colorClasses[searchType.color] || colorClasses.blue
+                    }&quot;&gt;
+                        &lt;div class=&quot;flex items-center gap-3&quot;&gt;
+                            &lt;div class=&quot;flex items-center justify-center w-8 h-8 rounded-lg bg-white/90 dark:bg-gray-900/90 shadow-sm&quot;&gt;
+                                &lt;i class=&quot;fa-brands ${searchType.icon}&quot;&gt;&lt;/i&gt;
+                            &lt;/div&gt;
+                            &lt;div&gt;
+                                &lt;div class=&quot;font-medium&quot;&gt;${searchType.tag}&lt;/div&gt;
+                                &lt;div class=&quot;text-sm opacity-80&quot;&gt;
+                                    ${searchType.description}
+                                &lt;/div&gt;
+                            &lt;/div&gt;
+                        &lt;/div&gt;
+                    &lt;/div&gt;
+                    &lt;div class=&quot;absolute inset-0 bg-gradient-to-r from-white/50 to-transparent dark:from-gray-800/50 pointer-events-none&quot;&gt;&lt;/div&gt;
+                &lt;/div&gt;
+            `;
+        }
+
+        // Group suggestions by type
+        const groupedItems = items.reduce((acc, item) =&gt; {
+            const type = item.type || item.category || &apos;other&apos;;
+            if (!acc[type]) acc[type] = [];
+            acc[type].push(item);
+            return acc;
+        }, {});
+
+        // Render each group
+        Object.entries(groupedItems).forEach(([type, groupItems]) =&gt; {
+            dropdownContent += `
+                &lt;div class=&quot;py-2&quot;&gt;
+                    &lt;div class=&quot;px-4 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider&quot;&gt;
+                        ${this.formatGroupTitle(type)}
+                    &lt;/div&gt;
+                    ${groupItems
+                        .map(
+                            (item, index) =&gt; `
+                        &lt;div class=&quot;suggestion px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer
+                                    transition-colors duration-150 group
+                                    ${
+                                        index === this.selectedIndex
+                                            ? &apos;bg-gray-50 dark:bg-gray-700/50&apos;
+                                            : &apos;&apos;
+                                    }&quot;
+                             data-index=&quot;${index}&quot;&gt;
+                            &lt;div class=&quot;flex items-center gap-3&quot;&gt;
+                                &lt;div class=&quot;flex-none w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 
+                                            flex items-center justify-center
+                                            group-hover:bg-gray-200 dark:group-hover:bg-gray-700
+                                            transition-colors duration-150&quot;&gt;
+                                    &lt;i class=&quot;fa-solid ${this.getIconForType(
+                                        item.type || item.category
+                                    )} 
+                                              text-gray-500 dark:text-gray-400&quot;&gt;&lt;/i&gt;
+                                &lt;/div&gt;
+                                &lt;div class=&quot;flex-1 min-w-0&quot;&gt;
+                                    &lt;div class=&quot;text-sm font-medium truncate&quot;&gt;
+                                        ${item.query || item}
+                                    &lt;/div&gt;
+                                    ${this.renderMetadata(item)}
+                                &lt;/div&gt;
+                            &lt;/div&gt;
+                            ${this.renderTags(item)}
+                        &lt;/div&gt;
+                    `
+                        )
+                        .join(&apos;&apos;)}
+                &lt;/div&gt;
+            `;
+        });
+
+        this.dropdown.innerHTML = dropdownContent;
+
+        // Show dropdown with animation
+        this.dropdown.style.display = &apos;block&apos;;
+        requestAnimationFrame(() =&gt; {
+            this.dropdown.classList.add(&apos;translate-y-0&apos;, &apos;opacity-100&apos;, &apos;scale-100&apos;);
+            this.dropdown.classList.remove(&apos;translate-y-1&apos;, &apos;opacity-0&apos;, &apos;scale-98&apos;);
+        });
+
+        this.visible = true;
+        this.addSuggestionClickListeners();
+    }
+
+    hide() {
+        this.dropdown.classList.remove(&apos;translate-y-0&apos;, &apos;opacity-100&apos;, &apos;scale-100&apos;);
+        this.dropdown.classList.add(&apos;translate-y-1&apos;, &apos;opacity-0&apos;, &apos;scale-98&apos;);
+        this.visible = false;
+    }
+
+    addSuggestionClickListeners() {
+        this.dropdown.querySelectorAll(&apos;.suggestion&apos;).forEach((el) =&gt; {
+            el.addEventListener(&apos;click&apos;, () =&gt; {
+                const index = parseInt(el.dataset.index);
+                this.selectSuggestion(index);
+            });
+        });
+    }
+
+    formatGroupTitle(type) {
+        const titles = {
+            command: &apos;Commands&apos;,
+            url: &apos;URLs&apos;,
+            domain: &apos;Domains&apos;,
+            search: &apos;Search History&apos;,
+            github: &apos;GitHub&apos;,
+            stackoverflow: &apos;Stack Overflow&apos;,
+            documentation: &apos;Documentation&apos;,
+            video: &apos;Videos&apos;,
+            social: &apos;Social&apos;,
+            other: &apos;Suggestions&apos;,
+        };
+        return titles[type] || type.charAt(0).toUpperCase() + type.slice(1);
+    }
+
+    getIconForType(type) {
+        const icons = {
+            url: &apos;fa-link&apos;,
+            domain: &apos;fa-globe&apos;,
+            search: &apos;fa-clock-rotate-left&apos;,
+            command: &apos;fa-terminal&apos;,
+            github: &apos;fa-code&apos;,
+            stackoverflow: &apos;fa-stack-overflow&apos;,
+            documentation: &apos;fa-book&apos;,
+            video: &apos;fa-play&apos;,
+            social: &apos;fa-users&apos;,
+            suggestion: &apos;fa-magnifying-glass&apos;,
+            other: &apos;fa-lightbulb&apos;,
+        };
+        return icons[type] || &apos;fa-lightbulb&apos;;
+    }
+
+    renderMetadata(item) {
+        if (!item.timestamp) return &apos;&apos;;
+
+        const timeAgo = dayjs(item.timestamp).fromNow();
+        const count = item.count ? `· ${item.count}×` : &apos;&apos;;
+
+        return `
+            &lt;div class=&quot;text-xs text-gray-400 dark:text-gray-500 mt-0.5&quot;&gt;
+                ${timeAgo} ${count}
+            &lt;/div&gt;
+        `;
+    }
+
+    renderTags(item) {
+        if (!item.tags?.length) return &apos;&apos;;
+
+        return `
+            &lt;div class=&quot;mt-2 flex flex-wrap gap-1&quot;&gt;
+                ${item.tags
+                    .map(
+                        (tag) =&gt; `
+                    &lt;span class=&quot;px-2 py-0.5 text-xs rounded-full
+                                bg-gray-100 dark:bg-gray-800 
+                                text-gray-600 dark:text-gray-300
+                                border border-gray-200/50 dark:border-gray-700/50&quot;&gt;
+                        ${tag}
+                    &lt;/span&gt;
+                `
+                    )
+                    .join(&apos;&apos;)}
+            &lt;/div&gt;
+        `;
+    }
+
+    moveSelection(direction) {
+        if (!this.visible) return;
+
+        this.selectedIndex += direction;
+        if (this.selectedIndex &lt; 0) this.selectedIndex = this.suggestions.length - 1;
+        if (this.selectedIndex &gt;= this.suggestions.length) this.selectedIndex = 0;
+
+        const suggestions = this.dropdown.querySelectorAll(&apos;.suggestion&apos;);
+        suggestions.forEach((el, index) =&gt; {
+            el.classList.toggle(&apos;bg-gray-50&apos;, index === this.selectedIndex);
+            el.classList.toggle(&apos;dark:bg-gray-700/50&apos;, index === this.selectedIndex);
+
+            if (index === this.selectedIndex) {
+                this.ensureVisible(el);
+            }
+        });
+    }
+
+    ensureVisible(element) {
+        const rect = element.getBoundingClientRect();
+        const dropdownRect = this.dropdown.getBoundingClientRect();
+
+        if (rect.bottom &gt; dropdownRect.bottom) {
+            element.scrollIntoView(false);
+        } else if (rect.top &lt; dropdownRect.top) {
+            element.scrollIntoView(true);
+        }
+    }
+
+    selectSuggestion(index) {
+        const suggestion = this.suggestions[index];
+        if (suggestion) {
+            this.onSelect(suggestion.query || suggestion);
+            this.hide();
+        }
+    }
+}
+</document_content>
+</document>
+<document index="10">
+<source>homepage/js/index.js</source>
+<document_content>import { App } from &apos;./app.js&apos;;
+import { initializeSearch } from &apos;./services/search/index.js&apos;;
+
+
+// Initialize dayjs relative time plugin
+dayjs.extend(dayjs_plugin_relativeTime);
+
+// Wait for DOM to be ready
+document.addEventListener(&apos;DOMContentLoaded&apos;, () =&gt; {
+    // Initialize main app
+    const app = new App();
+    app.init().catch((error) =&gt; {
+        console.error(&apos;Failed to initialize application:&apos;, error);
+    });
+
+    // Initialize enhanced search functionality
+    initializeSearch();
+
+    // Setup keyboard shortcuts
+    setupKeyboardShortcuts();
+});
+
+// Setup keyboard shortcuts for enhanced functionality
+function setupKeyboardShortcuts() {
+    document.addEventListener(&apos;keydown&apos;, (e) =&gt; {
+        // Quick search focus (Ctrl/Cmd + K or /)
+        if ((e.ctrlKey || e.metaKey) &amp;&amp; e.key === &apos;k&apos; || e.key === &apos;/&apos;) {
+            e.preventDefault();
+            const searchInput = document.getElementById(&apos;searchInput&apos;);
+            if (searchInput) {
+                searchInput.focus();
+                searchInput.select();
+            }
+        }
+
+        // Refresh feed (Ctrl/Cmd + R)
+        if ((e.ctrlKey || e.metaKey) &amp;&amp; e.key === &apos;r&apos;) {
+            e.preventDefault();
+            document.getElementById(&apos;refreshButton&apos;)?.click();
+        }
+
+        // Find in feed (Ctrl/Cmd + F)
+        if ((e.ctrlKey || e.metaKey) &amp;&amp; e.key === &apos;f&apos;) {
+            e.preventDefault();
+            document.getElementById(&apos;searchInput&apos;)?.focus();
+        }
+    });
+}
+
+// Optional: Add error boundary for unhandled rejections
+window.addEventListener(&apos;unhandledrejection&apos;, (event) =&gt; {
+    console.error(&apos;Unhandled promise rejection:&apos;, event.reason);
+});</document_content>
+</document>
+<document index="11">
+<source>homepage/js/components/FiltersModal.js</source>
+<document_content>import { sourcesConfig } from &apos;../config/sourceConfig.js&apos;;
+
+export class FiltersModal {
+    static build() {
+        const modalContent = document.getElementById(&apos;filtersModalContent&apos;);
+        modalContent.innerHTML = &apos;&apos;;
+
+        sourcesConfig.forEach((source) =&gt; {
+            const section = this.createSourceSection(source);
+            modalContent.appendChild(section);
+        });
+    }
+
+    static createSourceSection(source) {
+        const isDark = document.documentElement.classList.contains(&apos;dark&apos;);
+        const section = document.createElement(&apos;div&apos;);
+        section.className = isDark
+            ? &apos;bg-gray-700 p-4 rounded-lg space-y-4&apos;
+            : &apos;bg-gray-50 p-4 rounded-lg space-y-4&apos;;
+
+        const header = this.createSectionHeader(source, isDark);
+        section.appendChild(header);
+
+        source.fields.forEach((field) =&gt; {
+            if (field.key === &apos;enabled&apos;) return;
+            const fieldElement = this.createFilterField(source.id, field, isDark);
+            section.appendChild(fieldElement);
+        });
+
+        return section;
+    }
+
+    static createSectionHeader(source, isDark) {
+        const header = document.createElement(&apos;div&apos;);
+        header.className = &apos;flex items-center justify-between mb-4&apos;;
+
+        const title = document.createElement(&apos;h3&apos;);
+        title.className = isDark
+            ? &apos;text-md font-semibold text-gray-200 flex items-center&apos;
+            : &apos;text-md font-semibold text-gray-900 flex items-center&apos;;
+        title.innerHTML = `${source.icon}${source.label} Settings`;
+
+        const enabledField = source.fields.find((f) =&gt; f.key === &apos;enabled&apos;);
+        if (enabledField) {
+            const toggle = this.createToggleSwitch(source.id, enabledField);
+            header.appendChild(toggle);
+        }
+
+        header.appendChild(title);
+        return header;
+    }
+
+    static createToggleSwitch(sourceId, field) {
+        const label = document.createElement(&apos;label&apos;);
+        label.className = &apos;relative inline-flex items-center cursor-pointer&apos;;
+
+        const input = document.createElement(&apos;input&apos;);
+        input.type = &apos;checkbox&apos;;
+        input.className = &apos;sr-only peer&apos;;
+        input.id = `${sourceId}_${field.key}`;
+
+        const slider = document.createElement(&apos;div&apos;);
+        slider.className = `
+            w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full 
+            dark:bg-gray-700 peer-checked:after:translate-x-full 
+            after:content-[&apos;&apos;] after:absolute after:top-[2px] 
+            after:left-[2px] after:bg-white after:border-gray-300 
+            after:border after:rounded-full after:h-5 after:w-5 
+            after:transition-all dark:border-gray-600 
+            peer-checked:bg-blue-600
+        `;
+
+        label.appendChild(input);
+        label.appendChild(slider);
+
+        return label;
+    }
+
+    static createFilterField(sourceId, field, isDark) {
+        const container = document.createElement(&apos;div&apos;);
+        container.className = &apos;space-y-2&apos;;
+
+        const label = document.createElement(&apos;label&apos;);
+        label.className = isDark
+            ? &apos;block text-sm font-medium text-gray-300&apos;
+            : &apos;block text-sm font-medium text-gray-700&apos;;
+        label.htmlFor = `${sourceId}_${field.key}`;
+        label.textContent = field.label;
+
+        const input = this.createInput(sourceId, field);
+
+        container.appendChild(label);
+        container.appendChild(input);
+
+        return container;
+    }
+
+    static createInput(sourceId, field) {
+        let input;
+
+        if (field.type === &apos;select&apos;) {
+            input = document.createElement(&apos;select&apos;);
+            input.className = &apos;theme-select&apos;;
+
+            field.options.forEach((opt) =&gt; {
+                const option = document.createElement(&apos;option&apos;);
+                option.value = opt;
+                option.textContent = opt.charAt(0).toUpperCase() + opt.slice(1);
+                input.appendChild(option);
+            });
+        } else {
+            input = document.createElement(&apos;input&apos;);
+            input.type = field.type;
+            input.className = &apos;theme-input&apos;;
+            if (field.placeholder) {
+                input.placeholder = field.placeholder;
+            }
+        }
+
+        input.id = `${sourceId}_${field.key}`;
+        return input;
+    }
+
+    static show() {
+        const modal = document.getElementById(&apos;filtersModal&apos;);
+        modal.classList.remove(&apos;hidden&apos;);
+        modal.classList.add(&apos;flex&apos;);
+        setTimeout(() =&gt; modal.classList.add(&apos;modal-active&apos;), 10);
+    }
+
+    static hide() {
+        const modal = document.getElementById(&apos;filtersModal&apos;);
+        modal.classList.remove(&apos;modal-active&apos;);
+        setTimeout(() =&gt; {
+            modal.classList.remove(&apos;flex&apos;);
+            modal.classList.add(&apos;hidden&apos;);
+        }, 250);
+    }
+}
+</document_content>
+</document>
+<document index="12">
+<source>homepage/js/app.js</source>
+<document_content>import { Card } from &apos;./components/Card.js&apos;;
+import { FiltersModal } from &apos;./components/FiltersModal.js&apos;;
+import { MAX_CACHED_ARTICLES, STORAGE_KEYS } from &apos;./config/constants.js&apos;;
+import { sourcesConfig } from &apos;./config/sourceConfig.js&apos;;
+import { DevToApi } from &apos;./services/api/devToApi.js&apos;;
+import { GitHubApi } from &apos;./services/api/githubApi.js&apos;;
+import { HackerNewsApi } from &apos;./services/api/hackerNewsApi.js&apos;;
+import { StorageService } from &apos;./services/storageService.js&apos;;
+import { ThemeService } from &apos;./services/themeService.js&apos;;
+
+export class App {
+    constructor() {
+        this.allItems = [];
+        this.sourcesSettings = {};
+        this.observer = null;
+        this.isLoading = false;
+    }
+
+    async init() {
+        // Initialize components
+        this.loadInitialSettings();
+        await this.initData();
+        this.setupIntersectionObserver();
+        this.setupEventListeners();
+    }
+
+    loadInitialSettings() {
+        ThemeService.loadTheme();
+        this.loadSettings();
+        this.focusSearchInput();
+    }
+
+    focusSearchInput() {
+        setTimeout(() =&gt; {
+            const searchInput = document.getElementById(&apos;searchInput&apos;);
+            if (searchInput) {
+                searchInput.focus();
+            }
+        }, 100);
+    }
+
+    loadSettings() {
+        const storedSettings = StorageService.loadSettings();
+        if (storedSettings) {
+            this.sourcesSettings = storedSettings;
+        } else {
+            sourcesConfig.forEach((source) =&gt; {
+                this.sourcesSettings[source.id] = { ...source.defaultSettings };
+            });
+            StorageService.saveSettings(this.sourcesSettings);
+        }
+    }
+
+    async initData() {
+        // Load cached articles if they exist
+        const cachedArticles = StorageService.loadArticles();
+        if (cachedArticles) {
+            this.allItems = cachedArticles;
+            this.renderFeed();
+        }
+
+        // Fetch new articles
+        await this.fetchAllEnabledSources();
+    }
+
+    setupIntersectionObserver() {
+        const sentinel = document.getElementById(&apos;infiniteScrollTrigger&apos;);
+        this.observer = new IntersectionObserver(
+            async (entries) =&gt; {
+                if (entries[0].isIntersecting &amp;&amp; !this.isLoading) {
+                    await this.fetchAllEnabledSources();
+                    this.renderFeed();
+                }
+            },
+            {
+                rootMargin: &apos;0px&apos;,
+                threshold: 1.0,
+            }
+        );
+        this.observer.observe(sentinel);
+    }
+
+    async fetchAllEnabledSources() {
+        if (this.isLoading) return;
+        this.isLoading = true;
+        this.showLoadingIndicator();
+
+        try {
+            const fetchPromises = [];
+
+            // GitHub
+            if (this.sourcesSettings.github?.enabled) {
+                const settings = this.sourcesSettings.github;
+                const languages = settings.language
+                    .split(&apos;,&apos;)
+                    .map((lang) =&gt; lang.trim().toLowerCase())
+                    .filter(Boolean);
+
+                const languagePromises = (languages.length &gt; 0 ? languages : [null]).map(
+                    async (language) =&gt; {
+                        const items = await GitHubApi.fetchRepositories(settings, language);
+                        return items.map((item) =&gt; GitHubApi.transformResponse(item));
+                    }
+                );
+
+                fetchPromises.push(...languagePromises);
+                settings.page += 1;
+            }
+
+            // HackerNews
+            if (this.sourcesSettings.hackernews?.enabled) {
+                const settings = this.sourcesSettings.hackernews;
+                if (!settings.ids || settings.ids.length === 0) {
+                    settings.ids = await HackerNewsApi.fetchStoryIds(settings.type);
+                    settings.index = 0;
+                }
+                const items = await HackerNewsApi.fetchStories(settings);
+                fetchPromises.push(
+                    Promise.resolve(items.map((item) =&gt; HackerNewsApi.transformResponse(item)))
+                );
+            }
+
+            // Dev.to
+            if (this.sourcesSettings.devto?.enabled) {
+                const settings = this.sourcesSettings.devto;
+                const items = await DevToApi.fetchArticles(settings);
+                fetchPromises.push(
+                    Promise.resolve(items.map((item) =&gt; DevToApi.transformResponse(item)))
+                );
+                settings.page += 1;
+            }
+
+            const results = await Promise.all(fetchPromises);
+            const newItems = results.flat();
+
+            // Filter out duplicates
+            const uniqueNewItems = newItems.filter(
+                (newItem) =&gt; !this.allItems.some((existingItem) =&gt; existingItem.url === newItem.url)
+            );
+
+            if (uniqueNewItems.length &gt; 0) {
+                this.allItems.push(...uniqueNewItems);
+
+                // Ensure we don&apos;t exceed MAX_CACHED_ARTICLES
+                if (this.allItems.length &gt; MAX_CACHED_ARTICLES) {
+                    this.allItems.sort((a, b) =&gt; b.date - a.date);
+                    this.allItems = this.allItems.slice(0, MAX_CACHED_ARTICLES);
+                }
+
+                StorageService.saveArticles(this.allItems);
+                this.renderFeed();
+            }
+        } catch (error) {
+            console.error(&apos;Error fetching data:&apos;, error);
+        } finally {
+            this.isLoading = false;
+            this.hideLoadingIndicator();
+        }
+    }
+
+    renderFeed() {
+        const container = document.getElementById(&apos;feedContainer&apos;);
+        container.innerHTML = &apos;&apos;;
+
+        this.allItems
+            .sort((a, b) =&gt; b.date - a.date)
+            .forEach((item) =&gt; {
+                container.appendChild(Card.create(item));
+            });
+    }
+
+    showLoadingIndicator() {
+        const indicator = document.getElementById(&apos;loadingIndicator&apos;);
+        indicator?.classList.remove(&apos;hidden&apos;);
+    }
+
+    hideLoadingIndicator() {
+        const indicator = document.getElementById(&apos;loadingIndicator&apos;);
+        indicator?.classList.add(&apos;hidden&apos;);
+    }
+
+    setupEventListeners() {
+        // Theme toggle
+        document.getElementById(&apos;themeToggle&apos;)?.addEventListener(&apos;click&apos;, () =&gt; {
+            ThemeService.toggleTheme();
+        });
+
+        document.getElementById(&apos;mobileThemeToggle&apos;)?.addEventListener(&apos;click&apos;, () =&gt; {
+            ThemeService.toggleTheme();
+        });
+
+        // Refresh
+        document.getElementById(&apos;refreshButton&apos;)?.addEventListener(&apos;click&apos;, () =&gt; {
+            this.resetAndRefetch();
+        });
+
+        document.getElementById(&apos;mobileRefreshButton&apos;)?.addEventListener(&apos;click&apos;, () =&gt; {
+            this.resetAndRefetch();
+        });
+
+        // Filters
+        document.getElementById(&apos;openFilters&apos;)?.addEventListener(&apos;click&apos;, () =&gt; {
+            FiltersModal.build();
+            FiltersModal.show();
+        });
+
+        document.getElementById(&apos;mobileOpenFilters&apos;)?.addEventListener(&apos;click&apos;, () =&gt; {
+            FiltersModal.build();
+            FiltersModal.show();
+        });
+
+        document.getElementById(&apos;closeFilters&apos;)?.addEventListener(&apos;click&apos;, () =&gt; {
+            FiltersModal.hide();
+        });
+
+        document.getElementById(&apos;cancelFiltersBtn&apos;)?.addEventListener(&apos;click&apos;, () =&gt; {
+            FiltersModal.hide();
+        });
+
+        document.getElementById(&apos;applyFiltersBtn&apos;)?.addEventListener(&apos;click&apos;, () =&gt; {
+            this.applyFilters();
+        });
+
+        // Search
+        document.getElementById(&apos;searchForm&apos;)?.addEventListener(&apos;submit&apos;, (e) =&gt; {
+            e.preventDefault();
+            const input = document.getElementById(&apos;searchInput&apos;);
+            if (input?.value.trim()) {
+                window.open(
+                    `https://www.google.com/search?q=${encodeURIComponent(input.value)}`,
+                    &apos;_blank&apos;
+                );
+            }
+        });
+
+        // Scroll to top
+        document.getElementById(&apos;mobileScrollToTop&apos;)?.addEventListener(&apos;click&apos;, () =&gt; {
+            window.scrollTo({ top: 0, behavior: &apos;smooth&apos; });
+        });
+
+        // Scroll handler
+        window.addEventListener(&apos;scroll&apos;, () =&gt; {
+            const scrollBtn = document.getElementById(&apos;mobileScrollToTop&apos;);
+            if (window.scrollY &gt; 500) {
+                scrollBtn?.classList.remove(&apos;hidden&apos;);
+            } else {
+                scrollBtn?.classList.add(&apos;hidden&apos;);
+            }
+        });
+    }
+
+    async resetAndRefetch() {
+        this.allItems = [];
+        localStorage.removeItem(STORAGE_KEYS.ARTICLES);
+        localStorage.removeItem(STORAGE_KEYS.TIMESTAMP);
+
+        // Reset source settings
+        Object.keys(this.sourcesSettings).forEach((sourceId) =&gt; {
+            if (sourceId === &apos;hackernews&apos;) {
+                this.sourcesSettings[sourceId].index = 0;
+                this.sourcesSettings[sourceId].ids = [];
+            } else {
+                this.sourcesSettings[sourceId].page = 1;
+            }
+        });
+
+        // Clear the feed and show loading
+        const container = document.getElementById(&apos;feedContainer&apos;);
+        if (container) container.innerHTML = &apos;&apos;;
+        this.showLoadingIndicator();
+
+        // Fetch new data
+        await this.fetchAllEnabledSources();
+    }
+
+    applyFilters() {
+        sourcesConfig.forEach((source) =&gt; {
+            const settings = {};
+            source.fields.forEach((field) =&gt; {
+                const input = document.getElementById(`${source.id}_${field.key}`);
+                if (input) {
+                    settings[field.key] = field.type === &apos;checkbox&apos; ? input.checked : input.value;
+                }
+            });
+            this.sourcesSettings[source.id] = {
+                ...this.sourcesSettings[source.id],
+                ...settings,
+            };
+        });
+
+        StorageService.saveSettings(this.sourcesSettings);
+        this.resetAndRefetch();
+        FiltersModal.hide();
+    }
+}
+</document_content>
+</document>
+<document index="13">
+<source>homepage/js/services/search/handlers/siteSearchHandlers.js</source>
+<document_content>export const siteSearchHandlers = {
+    &apos;youtube:&apos;: (query) =&gt;
+        `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`,
+    &apos;yt:&apos;: (query) =&gt; `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`,
+    &apos;github:&apos;: (query) =&gt; `https://github.com/search?q=${encodeURIComponent(query)}`,
+    &apos;gh:&apos;: (query) =&gt; `https://github.com/search?q=${encodeURIComponent(query)}`,
+    &apos;stackoverflow:&apos;: (query) =&gt; `https://stackoverflow.com/search?q=${encodeURIComponent(query)}`,
+    &apos;so:&apos;: (query) =&gt; `https://stackoverflow.com/search?q=${encodeURIComponent(query)}`,
+    &apos;reddit:&apos;: (query) =&gt; `https://www.reddit.com/search/?q=${encodeURIComponent(query)}`,
+    &apos;r:&apos;: (query) =&gt; {
+        const parts = query.split(/\s+/);
+        const subreddit = parts[0];
+        const searchTerms = parts.slice(1).join(&apos; &apos;);
+        return searchTerms
+            ? `https://www.reddit.com/r/${subreddit}/search?q=${encodeURIComponent(searchTerms)}`
+            : `https://www.reddit.com/r/${subreddit}`;
+    },
+    &apos;twitter:&apos;: (query) =&gt; `https://twitter.com/search?q=${encodeURIComponent(query)}`,
+    &apos;x:&apos;: (query) =&gt; `https://twitter.com/search?q=${encodeURIComponent(query)}`,
+    &apos;npm:&apos;: (query) =&gt; `https://www.npmjs.com/search?q=${encodeURIComponent(query)}`,
+    &apos;mdn:&apos;: (query) =&gt; `https://developer.mozilla.org/en-US/search?q=${encodeURIComponent(query)}`,
+    &apos;docs:&apos;: (query) =&gt; `https://developer.mozilla.org/en-US/search?q=${encodeURIComponent(query)}`,
+    &apos;devto:&apos;: (query) =&gt; `https://dev.to/search?q=${encodeURIComponent(query)}`,
+    &apos;dev:&apos;: (query) =&gt; `https://dev.to/search?q=${encodeURIComponent(query)}`,
+    &apos;maps:&apos;: (query) =&gt; `https://www.google.com/maps/search/${encodeURIComponent(query)}`,
+    &apos;wiki:&apos;: (query) =&gt; `https://en.wikipedia.org/w/index.php?search=${encodeURIComponent(query)}`,
+};
+
+export function handleSiteSearch(value) {
+    const prefix = Object.keys(siteSearchHandlers).find((prefix) =&gt;
+        value.toLowerCase().startsWith(prefix.toLowerCase())
+    );
+
+    if (prefix) {
+        const query = value.slice(prefix.length).trim();
+        if (query) {
+            return siteSearchHandlers[prefix](query);
+        }
+    }
+
+    return null;
+}
+</document_content>
+</document>
+<document index="14">
+<source>homepage/js/services/search/index.js</source>
+<document_content>export { SearchHistory } from &apos;./SearchHistory.js&apos;;
+export { SearchSuggestions } from &apos;./SearchSuggestions.js&apos;;
+export { SearchAutocomplete } from &apos;./SearchAutocomplete.js&apos;;
+export { initializeSearch } from &apos;./initializeSearch.js&apos;;</document_content>
+</document>
+<document index="15">
+<source>homepage/js/services/search/SearchSuggestions.js</source>
+<document_content>export class SearchSuggestions {
+    constructor() {
+        this.cache = new Map();
+        this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
+    }
+
+    async get(query) {
+        if (!query || query.length &lt; 2) return [];
+
+        const cached = this.cache.get(query);
+        if (cached &amp;&amp; Date.now() - cached.timestamp &lt; this.cacheTimeout) {
+            return cached.suggestions;
+        }
+
+        try {
+            const suggestions = await this.fetchGoogleSuggestions(query);
+
+            this.cache.set(query, {
+                timestamp: Date.now(),
+                suggestions,
+            });
+
+            return suggestions;
+        } catch (error) {
+            console.error(&apos;Error fetching suggestions:&apos;, error);
+            return [];
+        }
+    }
+
+    async fetchGoogleSuggestions(query) {
+        if (query.startsWith(&apos;!&apos;)) {
+            return [&apos;!help&apos;, &apos;!settings&apos;, &apos;!refresh&apos;, &apos;!theme&apos;, &apos;!top&apos;].filter((cmd) =&gt;
+                cmd.startsWith(query)
+            );
+        }
+
+        try {
+            // Fallback to Wikipedia suggestions
+            const wikiResponse = await fetch(
+                `https://en.wikipedia.org/w/api.php?action=opensearch&amp;format=json&amp;search=${encodeURIComponent(
+                    query
+                )}&amp;origin=*&amp;limit=10`
+            );
+            const [_, suggestions] = await wikiResponse.json();
+            return suggestions;
+        } catch (wikiError) {
+            console.error(&apos;Error fetching Wikipedia suggestions:&apos;, wikiError);
+            // Final fallback to static suggestions
+            return [
+                `${query} tutorial`,
+                `${query} documentation`,
+                `${query} example`,
+                `${query} github`,
+                `${query} best practices`,
+            ];
+        }
+    }
+}
+</document_content>
+</document>
+<document index="16">
+<source>homepage/styles.css</source>
+<document_content>/* Scrollbar styles */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-thumb {
+    background-color: rgba(37, 99, 235, 0.5);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-track {
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+}
+
+/* Intersection observer trigger */
+#infiniteScrollTrigger {
+    visibility: hidden;
+}
+
+/* Modal animations */
+.modal-backdrop {
+    transition: opacity 0.3s ease;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    transform: scale(0.95);
+    opacity: 0;
+}
+
+.modal-active .modal-content {
+    transform: scale(1);
+    opacity: 1;
+}
+
+/* Light theme variables */
+:root {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #f1f5f9;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --border-color: #e2e8f0;
+    --card-bg: #ffffff;
+    --hover-bg: #f8fafc;
+    --navbar-bg: linear-gradient(135deg, #2563eb, #1d4ed8);
+    --modal-section-bg: #f8fafc;
+    --tag-bg: #e5e7eb;
+    --tag-text: #374151;
+}
+
+/* Dark theme variables */
+.dark {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --border-color: #334155;
+    --card-bg: #1e293b;
+    --hover-bg: #334155;
+    --navbar-bg: linear-gradient(135deg, #1e40af, #1e3a8a);
+    --modal-section-bg: #1e293b;
+    --tag-bg: #374151;
+    --tag-text: #e5e7eb;
+}
+
+/* Theme transition */
+body {
+    transition: background-color 0.3s ease, color 0.3s ease;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+/* Card theme styles */
+.theme-card {
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+.theme-card:hover {
+    background-color: var(--hover-bg);
+}
+
+/* Navbar theme styles */
+.theme-navbar {
+    background: var(--navbar-bg);
+    backdrop-filter: blur(8px);
+}
+
+/* Modal theme styles */
+.theme-modal {
+    background: var(--card-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+/* Modal section cards */
+.theme-modal-section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.dark .theme-modal-section {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+/* Modal section headings */
+.theme-modal-section h3 {
+    color: var(--text-primary);
+}
+
+/* Modal section text */
+.theme-modal-section label {
+    color: var(--text-primary);
+}
+
+/* Input theme styles */
+.theme-input {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+    transition: all 0.2s ease;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    width: 100%;
+    outline: none;
+    border: 1px solid var(--border-color);
+}
+
+.theme-input:focus {
+    border-color: #3b82f6;
+}
+
+.theme-input::placeholder {
+    color: var(--text-secondary);
+}
+
+/* Custom select styles */
+.theme-select {
+    appearance: none;
+    background-color: var(--bg-secondary);
+    background-image: url(&quot;data:image/svg+xml;charset=UTF-8,%3csvg xmlns=&apos;http://www.w3.org/2000/svg&apos; viewBox=&apos;0 0 24 24&apos; fill=&apos;none&apos; stroke=&apos;currentColor&apos; stroke-width=&apos;2&apos; stroke-linecap=&apos;round&apos; stroke-linejoin=&apos;round&apos;%3e%3cpolyline points=&apos;6 9 12 15 18 9&apos;%3e%3c/polyline%3e%3c/svg%3e&quot;);
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1em;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    padding: 0.5rem 2.5rem 0.5rem 1rem;
+    width: 100%;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    transition: all 0.2s ease;
+}
+
+.theme-select:hover {
+    background-color: var(--hover-bg);
+}
+
+.theme-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+/* Remove the custom select styles */
+.custom-select,
+.custom-select-button,
+.custom-select-options,
+.custom-select-option {
+    display: none;
+}
+
+/* Button styles */
+.btn {
+    transition: all 0.2s ease;
+    transform-origin: center;
+}
+
+.btn:active {
+    transform: scale(0.95);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+}
+
+/* Modal buttons */
+.theme-modal button.hover\:bg-gray-100:hover {
+    background: var(--bg-secondary);
+}
+
+/* Focus styles */
+.focus-visible:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+.search-dropdown {
+    transition: all 0.2s ease;
+}
+
+.search-suggestion {
+    transition: background-color 0.15s ease;
+}
+
+.search-suggestion:hover {
+    background-color: var(--hover-bg);
+}
+
+.search-suggestion.selected {
+    background-color: var(--hover-bg);
+}
+
+.search-tag {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    background-color: var(--tag-bg);
+    color: var(--tag-text);
+}
+
+/* Search input focus styles */
+#searchInput:focus {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+#searchInput:focus::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Search suggestion metadata */
+.suggestion-metadata {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+/* Search icons */
+.search-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+}
+
+/* Keyboard shortcut hint */
+.shortcut-hint {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.375rem;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 0.25rem;
+    margin-left: 0.5rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Search form container needs relative positioning for absolute tag placement */
+#searchForm {
+    position: relative;
+}
+
+/* Search type tag animations */
+#search-type-tag {
+    opacity: 0;
+    transform: translateY(-5px);
+    animation: fadeInUp 0.2s ease forwards;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Ensure the tag doesn&apos;t interfere with clicks */
+#search-type-tag {
+    pointer-events: none;
+    z-index: 20;
+}
+</document_content>
+</document>
+<document index="17">
+<source>homepage/js/services/themeService.js</source>
+<document_content>import { STORAGE_KEYS } from &apos;../config/constants.js&apos;;
+
+export class ThemeService {
+    static loadTheme() {
+        const storedTheme = localStorage.getItem(STORAGE_KEYS.THEME) || &apos;light&apos;;
+        const isDark = storedTheme === &apos;dark&apos;;
+        this.applyTheme(isDark);
+        return isDark;
+    }
+
+    static toggleTheme() {
+        const isDark = document.documentElement.classList.contains(&apos;dark&apos;);
+        this.applyTheme(!isDark);
+        return !isDark;
+    }
+
+    static applyTheme(isDark) {
+        localStorage.setItem(STORAGE_KEYS.THEME, isDark ? &apos;dark&apos; : &apos;light&apos;);
+        document.documentElement.classList.toggle(&apos;dark&apos;, isDark);
+        this.updateThemeIcon(isDark);
+    }
+
+    static updateThemeIcon(isDark) {
+        const desktopIcon = document.querySelector(&apos;#themeToggle i&apos;);
+        const mobileIcon = document.querySelector(&apos;#mobileThemeToggle i&apos;);
+
+        const iconClass = isDark ? &apos;fa-solid fa-sun&apos; : &apos;fa-solid fa-moon&apos;;
+
+        if (desktopIcon) desktopIcon.className = iconClass;
+        if (mobileIcon) mobileIcon.className = iconClass;
+    }
+}
+</document_content>
+</document>
+<document index="18">
+<source>homepage/js/services/storageService.js</source>
+<document_content>import { MAX_CACHED_ARTICLES, STORAGE_KEYS } from &apos;../config/constants.js&apos;;
+
+export class StorageService {
+    static saveArticles(articles) {
+        try {
+            const articlesToCache = [...articles]
+                .sort((a, b) =&gt; b.date - a.date)
+                .slice(0, MAX_CACHED_ARTICLES);
+
+            localStorage.setItem(STORAGE_KEYS.ARTICLES, JSON.stringify(articlesToCache));
+            localStorage.setItem(STORAGE_KEYS.TIMESTAMP, new Date().toISOString());
+            return true;
+        } catch (error) {
+            console.error(&apos;Error saving articles:&apos;, error);
+            return false;
+        }
+    }
+
+    static loadArticles() {
+        try {
+            const storedArticles = localStorage.getItem(STORAGE_KEYS.ARTICLES);
+            const lastUpdate = localStorage.getItem(STORAGE_KEYS.TIMESTAMP);
+
+            if (storedArticles &amp;&amp; lastUpdate) {
+                return JSON.parse(storedArticles).map((item) =&gt; ({
+                    ...item,
+                    date: new Date(item.date),
+                }));
+            }
+        } catch (error) {
+            console.error(&apos;Error loading articles:&apos;, error);
+        }
+        return null;
+    }
+
+    static saveSettings(settings) {
+        localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+    }
+
+    static loadSettings() {
+        const stored = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+        return stored ? JSON.parse(stored) : null;
+    }
+}
+</document_content>
+</document>
+<document index="19">
+<source>homepage/js/services/search/initializeSearch.js</source>
+<document_content>import { CommandHandler } from &apos;./CommandHandler.js&apos;;
+import { handleSiteSearch } from &apos;./handlers/siteSearchHandlers.js&apos;;
+import { SearchAutocomplete } from &apos;./SearchAutocomplete.js&apos;;
+import { SearchHistory } from &apos;./SearchHistory.js&apos;;
+import { SearchSuggestions } from &apos;./SearchSuggestions.js&apos;;
+import { tryParseUrl } from &apos;./utils/searchUtils.js&apos;;
+
+function handleSearch(value, history) {
+    if (!value) return;
+
+    // Check for commands first
+    if (value.startsWith(&apos;!&apos;)) {
+        const [command] = value.split(&apos; &apos;);
+        const commandHandler = new CommandHandler();
+        if (commandHandler.handle(command)) {
+            return;
+        }
+    }
+
+    // Check for site-specific searches
+    const siteSearchUrl = handleSiteSearch(value);
+    if (siteSearchUrl) {
+        history.add(value);
+        window.open(siteSearchUrl, &apos;_blank&apos;);
+        return;
+    }
+
+    // Try to parse as URL
+    const url = tryParseUrl(value);
+    if (url) {
+        history.add(value);
+        window.open(url, &apos;_blank&apos;);
+        return;
+    }
+
+    // If not a URL, proceed with regular search
+    history.add(value);
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(value)}`, &apos;_blank&apos;);
+}
+
+export function initializeSearch() {
+    const searchForm = document.getElementById(&apos;searchForm&apos;);
+    const searchInput = document.getElementById(&apos;searchInput&apos;);
+
+    if (!searchForm || !searchInput) return;
+
+    const history = new SearchHistory();
+    const suggestions = new SearchSuggestions();
+    const autocomplete = new SearchAutocomplete(searchInput, (query) =&gt; {
+        handleSearch(query, history);
+        searchInput.value = query;
+        autocomplete.hide();
+    });
+
+    let debounceTimeout;
+    searchInput.addEventListener(&apos;input&apos;, (e) =&gt; {
+        const value = e.target.value.trim();
+
+        clearTimeout(debounceTimeout);
+        debounceTimeout = setTimeout(async () =&gt; {
+            if (value) {
+                const [historySuggestions, externalSuggestions] = await Promise.all([
+                    history.search(value, { limit: 5 }),
+                    suggestions.get(value),
+                ]);
+
+                const combinedSuggestions = [
+                    ...historySuggestions,
+                    ...externalSuggestions.map((s) =&gt; ({ query: s, type: &apos;search&apos; })),
+                ];
+
+                autocomplete.show(combinedSuggestions);
+            } else {
+                autocomplete.hide();
+            }
+        }, 150);
+    });
+
+    searchForm.addEventListener(&apos;submit&apos;, (e) =&gt; {
+        e.preventDefault();
+        const value = searchInput.value.trim();
+        if (value) {
+            handleSearch(value, history);
+        }
+    });
+
+    document.addEventListener(&apos;click&apos;, (e) =&gt; {
+        if (!searchForm.contains(e.target)) {
+            autocomplete.hide();
+        }
+    });
+
+    // Handle keyboard navigation
+    searchInput.addEventListener(&apos;keydown&apos;, (e) =&gt; {
+        switch (e.key) {
+            case &apos;ArrowDown&apos;:
+                e.preventDefault();
+                autocomplete.moveSelection(1);
+                break;
+            case &apos;ArrowUp&apos;:
+                e.preventDefault();
+                autocomplete.moveSelection(-1);
+                break;
+            case &apos;Enter&apos;:
+                if (autocomplete.visible &amp;&amp; autocomplete.selectedIndex &gt;= 0) {
+                    e.preventDefault();
+                    autocomplete.selectSuggestion(autocomplete.selectedIndex);
+                }
+                break;
+            case &apos;Escape&apos;:
+                e.preventDefault();
+                autocomplete.hide();
+                e.target.blur();
+                break;
+            case &apos;Tab&apos;:
+                if (autocomplete.visible &amp;&amp; autocomplete.selectedIndex &gt;= 0) {
+                    e.preventDefault();
+                    autocomplete.selectSuggestion(autocomplete.selectedIndex);
+                }
+                break;
+        }
+    });
+}
+</document_content>
+</document>
+<document index="20">
+<source>homepage/js/utils/dateUtils.js</source>
+<document_content>export function buildDateRange(now, timePeriod) {
+    const endDate = new Date(now);
+    const startDate = new Date(now);
+
+    switch (timePeriod) {
+        case &apos;monthly&apos;:
+            startDate.setDate(startDate.getDate() - 30);
+            break;
+        case &apos;weekly&apos;:
+            startDate.setDate(startDate.getDate() - 7);
+            break;
+        case &apos;daily&apos;:
+        default:
+            startDate.setDate(startDate.getDate() - 1);
+    }
+
+    return `created:${formatDate(startDate)}..${formatDate(endDate)}`;
+}
+
+export function formatDate(date) {
+    return date.toISOString().split(&apos;T&apos;)[0];
+}
+</document_content>
+</document>
+<document index="21">
+<source>homepage/js/services/search/utils/searchPatterns.js</source>
+<document_content>export const searchPatterns = {
+    // Development &amp; Code
+    github: /github\.com|gh:|git@|gitlab|bitbucket/i,
+    stackoverflow: /stackoverflow\.com|so:|stackexchange\.com|askubuntu\.com|serverfault\.com/i,
+    documentation: /docs\.|api\.|reference\.|mdm\.|developer\.|readthedocs\.io|swagger|openapi/i,
+    code: /code\.|coding|algorithm|function|class |const |var |let |def |fn |func |import |export/i,
+
+    // Package Managers
+    npm: /npmjs\.com|npm:|package:|yarn add|npm install|pnpm/i,
+    pip: /pypi\.org|pip install|pip3|requirements\.txt|setup\.py/i,
+    cargo: /crates\.io|cargo add|cargo install|Cargo\.toml/i,
+    gems: /rubygems\.org|gem install|Gemfile/i,
+
+    // Web Development
+    frontend: /frontend\.|react\.|vue\.|angular\.|svelte\.|css\.|html\.|javascript\.|tsx\.|jsx/i,
+    backend: /backend\.|api\.|rest\.|graphql\.|endpoint\.|server\.|nodejs\.|django\.|flask/i,
+    web: /web\.|http|css|html|dom|browser|responsive|website/i,
+
+    // Learning &amp; Education
+    tutorial: /tutorial|course|learn|guide|how to|example|getting started|basics of/i,
+    education: /edu\.|course|lecture|lesson|study|learning|mooc|udemy|coursera|edx/i,
+
+    // Media
+    video: /youtube\.com|vimeo\.com|video:|youtu\.be|mp4|webm|streaming|watch/i,
+    audio: /spotify\.com|music\.|soundcloud|podcast|mp3|audio|listen/i,
+    image: /imgur\.com|image:|png|jpg|jpeg|gif|svg|photo|picture|pixiv|deviantart/i,
+
+    // Social &amp; Community
+    social: /twitter\.com|x\.com|linkedin\.com|social:|instagram\.com|facebook\.com|threads\.net/i,
+    community: /reddit\.com|r\/|forum\.|community\.|discord\.com|slack\.com|gitter|discussion/i,
+    chat: /chat\.|messaging|discord|slack|telegram|whatsapp|signal|matrix/i,
+};
+
+export const siteSearchPatterns = {
+    &apos;youtube:&apos;: { icon: &apos;fa-youtube&apos;, tag: &apos;YouTube Search&apos;, color: &apos;red&apos; },
+    &apos;yt:&apos;: { icon: &apos;fa-youtube&apos;, tag: &apos;YouTube Search&apos;, color: &apos;red&apos; },
+    &apos;github:&apos;: { icon: &apos;fa-github&apos;, tag: &apos;GitHub Search&apos;, color: &apos;slate&apos; },
+    &apos;gh:&apos;: { icon: &apos;fa-github&apos;, tag: &apos;GitHub Search&apos;, color: &apos;slate&apos; },
+    &apos;stackoverflow:&apos;: { icon: &apos;fa-stack-overflow&apos;, tag: &apos;Stack Overflow Search&apos;, color: &apos;orange&apos; },
+    &apos;so:&apos;: { icon: &apos;fa-stack-overflow&apos;, tag: &apos;Stack Overflow Search&apos;, color: &apos;orange&apos; },
+    &apos;reddit:&apos;: { icon: &apos;fa-reddit&apos;, tag: &apos;Reddit Search&apos;, color: &apos;orange&apos; },
+    &apos;r:&apos;: { icon: &apos;fa-reddit&apos;, tag: &apos;Subreddit Search&apos;, color: &apos;orange&apos; },
+    &apos;twitter:&apos;: { icon: &apos;fa-twitter&apos;, tag: &apos;Twitter Search&apos;, color: &apos;blue&apos; },
+    &apos;x:&apos;: { icon: &apos;fa-twitter&apos;, tag: &apos;Twitter Search&apos;, color: &apos;blue&apos; },
+    &apos;npm:&apos;: { icon: &apos;fa-npm&apos;, tag: &apos;NPM Search&apos;, color: &apos;red&apos; },
+    &apos;maps:&apos;: { icon: &apos;fa-map-marker-alt&apos;, tag: &apos;Google Maps Search&apos;, color: &apos;green&apos; },
+    &apos;wiki:&apos;: { icon: &apos;fa-wikipedia-w&apos;, tag: &apos;Wikipedia Search&apos;, color: &apos;slate&apos; },
+    &apos;devto:&apos;: { icon: &apos;fa-dev&apos;, tag: &apos;Dev.to Search&apos;, color: &apos;slate&apos; },
+    &apos;dev:&apos;: { icon: &apos;fa-dev&apos;, tag: &apos;Dev.to Search&apos;, color: &apos;slate&apos; }
+};</document_content>
+</document>
+<document index="22">
+<source>homepage/js/config/constants.js</source>
+<document_content>export const STORAGE_KEYS = {
+    ARTICLES: &apos;mergedFeedArticles&apos;,
+    TIMESTAMP: &apos;mergedFeedLastUpdate&apos;,
+    THEME: &apos;mergedFeedTheme&apos;,
+    SETTINGS: &apos;mergedFeedSettings&apos;,
+    SEARCH_HISTORY: &apos;searchHistory&apos;,
+    SEARCH_CACHE: &apos;searchCache&apos;,
+};
+
+export const MAX_CACHED_ARTICLES = 100;
+export const MAX_SEARCH_HISTORY = 100;
+export const SEARCH_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+export const SEARCH_CATEGORIES = {
+    GITHUB: &apos;github&apos;,
+    STACKOVERFLOW: &apos;stackoverflow&apos;,
+    DOCUMENTATION: &apos;documentation&apos;,
+    VIDEO: &apos;video&apos;,
+    SOCIAL: &apos;social&apos;,
+    NPM: &apos;npm&apos;,
+    NEWS: &apos;news&apos;,
+    GENERAL: &apos;general&apos;,
+};
+
+export const SEARCH_TYPES = {
+    COMMAND: &apos;command&apos;,
+    URL: &apos;url&apos;,
+    DOMAIN: &apos;domain&apos;,
+    FILTER: &apos;filter&apos;,
+    SEARCH: &apos;search&apos;,
+};
+</document_content>
+</document>
+<document index="23">
+<source>homepage/js/services/search/utils/searchUtils.js</source>
+<document_content>export function isValidUrl(string) {
+    try {
+        const url = new URL(string);
+        return url.protocol === &apos;http:&apos; || url.protocol === &apos;https:&apos;;
+    } catch {
+        return false;
+    }
+}
+
+export function tryParseUrl(input) {
+    if (isValidUrl(input)) {
+        return input;
+    }
+
+    if (isValidUrl(&apos;https://&apos; + input)) {
+        return &apos;https://&apos; + input;
+    }
+
+    if (/^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}/.test(input)) {
+        return &apos;https://&apos; + input;
+    }
+
+    return null;
+}
+
+export function getQueryType(query) {
+    if (query.startsWith(&apos;!&apos;)) return &apos;command&apos;;
+    try {
+        new URL(query);
+        return &apos;url&apos;;
+    } catch {
+        if (query.match(/^[\w-]+(\.[\w-]+)+/)) return &apos;domain&apos;;
+        if (query.includes(&apos;:&apos;)) return &apos;filter&apos;;
+        return &apos;search&apos;;
+    }
+}
+
+export function getUrlFromQuery(query) {
+    try {
+        const url = new URL(query);
+        return url.href;
+    } catch {
+        if (query.match(/^[\w-]+(\.[\w-]+)+/)) {
+            return `https://${query}`;
+        }
+        return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+    }
+}</document_content>
+</document>
+</documents>

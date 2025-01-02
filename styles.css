@@ -46,6 +46,8 @@
     --hover-bg: #f8fafc;
     --navbar-bg: linear-gradient(135deg, #2563eb, #1d4ed8);
     --modal-section-bg: #f8fafc;
+    --tag-bg: #e5e7eb;
+    --tag-text: #374151;
 }
 
 /* Dark theme variables */
@@ -59,6 +61,8 @@
     --hover-bg: #334155;
     --navbar-bg: linear-gradient(135deg, #1e40af, #1e3a8a);
     --modal-section-bg: #1e293b;
+    --tag-bg: #374151;
+    --tag-text: #e5e7eb;
 }
 
 /* Theme transition */
@@ -197,4 +201,93 @@ body {
 .focus-visible:focus {
     outline: 2px solid #3b82f6;
     outline-offset: 2px;
+}
+
+.search-dropdown {
+    transition: all 0.2s ease;
+}
+
+.search-suggestion {
+    transition: background-color 0.15s ease;
+}
+
+.search-suggestion:hover {
+    background-color: var(--hover-bg);
+}
+
+.search-suggestion.selected {
+    background-color: var(--hover-bg);
+}
+
+.search-tag {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    background-color: var(--tag-bg);
+    color: var(--tag-text);
+}
+
+/* Search input focus styles */
+#searchInput:focus {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+#searchInput:focus::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Search suggestion metadata */
+.suggestion-metadata {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+/* Search icons */
+.search-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+}
+
+/* Keyboard shortcut hint */
+.shortcut-hint {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.375rem;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 0.25rem;
+    margin-left: 0.5rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Search form container needs relative positioning for absolute tag placement */
+#searchForm {
+    position: relative;
+}
+
+/* Search type tag animations */
+#search-type-tag {
+    opacity: 0;
+    transform: translateY(-5px);
+    animation: fadeInUp 0.2s ease forwards;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Ensure the tag doesn't interfere with clicks */
+#search-type-tag {
+    pointer-events: none;
+    z-index: 20;
 }
