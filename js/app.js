@@ -221,7 +221,11 @@ export class App {
         this.allItems
             .sort((a, b) => b.date - a.date)
             .forEach((item) => {
-                fragment.appendChild(Card.create(item));
+                const cardElement = Card.create(item);
+                cardElement.addEventListener('click', () => {
+                    window.open(item.url, '_blank');
+                });
+                fragment.appendChild(cardElement);
             });
 
         container.innerHTML = '';
@@ -330,7 +334,9 @@ export class App {
             e.preventDefault();
             const input = document.getElementById('searchInput');
             if (input?.value.trim()) {
-                window.open(`https://www.google.com/search?q=${encodeURIComponent(input.value)}`);
+                window.location.href = `https://www.google.com/search?q=${encodeURIComponent(
+                    input.value
+                )}`;
             }
         });
     }
