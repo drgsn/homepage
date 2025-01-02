@@ -4,12 +4,14 @@ A sleek and modern developer news aggregator that combines feeds from GitHub, Ha
 
 <div align="center">
 
-![Light Theme](/screenshots/light-theme.png)
-![Dark Theme](/screenshots/dark-theme.png)
-
 [![Made with JavaScript](https://img.shields.io/badge/Made%20with-JavaScript-F7DF1E.svg?style=flat-square&logo=javascript)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 [![Styled with Tailwind CSS](https://img.shields.io/badge/Styled%20with-Tailwind%20CSS-38B2AC.svg?style=flat-square&logo=tailwind-css)](https://tailwindcss.com)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
+
+![Light Theme](/screenshots/light-theme.png)
+![Dark Theme](/screenshots/dark-theme.png)
+![Source Filters](/screenshots/filters.png)
+![Smart Search](/screenshots/smart-search.png)
 
 </div>
 
