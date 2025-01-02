@@ -19,7 +19,7 @@ function handleSearch(value, history) {
     const siteSearchUrl = handleSiteSearch(value);
     if (siteSearchUrl) {
         history.add(value);
-        window.open(siteSearchUrl, '_blank');
+        window.open(siteSearchUrl);
         return true;
     }
 
@@ -46,7 +46,7 @@ function handleSearch(value, history) {
 
     // Default to Google search for everything else
     history.add(value);
-    window.open(`https://www.google.com/search?q=${encodeURIComponent(value)}`, '_blank');
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(value)}`);
     return true;
 }
 

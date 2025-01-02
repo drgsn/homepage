@@ -128,7 +128,7 @@ export class App {
             if (this.sourcesSettings.github?.enabled) {
                 const settings = this.sourcesSettings.github;
                 const languages = this.parseLanguages(settings.language);
-                
+
                 const languagePromises = (languages.length > 0 ? languages : [null]).map(
                     async (language) => {
                         const items = await GitHubApi.fetchRepositories(settings, language, signal);
@@ -217,7 +217,7 @@ export class App {
         if (!container) return;
 
         const fragment = document.createDocumentFragment();
-        
+
         this.allItems
             .sort((a, b) => b.date - a.date)
             .forEach((item) => {
@@ -314,9 +314,15 @@ export class App {
 
         document.getElementById('openFilters')?.addEventListener('click', openFilters);
         document.getElementById('mobileOpenFilters')?.addEventListener('click', openFilters);
-        document.getElementById('closeFilters')?.addEventListener('click', () => FiltersModal.hide());
-        document.getElementById('cancelFiltersBtn')?.addEventListener('click', () => FiltersModal.hide());
-        document.getElementById('applyFiltersBtn')?.addEventListener('click', () => this.applyFilters());
+        document
+            .getElementById('closeFilters')
+            ?.addEventListener('click', () => FiltersModal.hide());
+        document
+            .getElementById('cancelFiltersBtn')
+            ?.addEventListener('click', () => FiltersModal.hide());
+        document
+            .getElementById('applyFiltersBtn')
+            ?.addEventListener('click', () => this.applyFilters());
     }
 
     setupSearchForm() {
@@ -324,10 +330,7 @@ export class App {
             e.preventDefault();
             const input = document.getElementById('searchInput');
             if (input?.value.trim()) {
-                window.open(
-                    `https://www.google.com/search?q=${encodeURIComponent(input.value)}`,
-                    '_blank'
-                );
+                window.open(`https://www.google.com/search?q=${encodeURIComponent(input.value)}`);
             }
         });
     }
@@ -373,7 +376,7 @@ export class App {
 
         const container = document.getElementById('feedContainer');
         if (container) container.innerHTML = '';
-        
+
         this.showLoadingIndicator();
         await this.fetchAllEnabledSources();
     }
@@ -390,7 +393,7 @@ export class App {
             this.sourcesSettings[source.id] = {
                 ...this.sourcesSettings[source.id],
                 ...settings,
-                page: 1 // Reset page number when applying filters
+                page: 1, // Reset page number when applying filters
             };
         });
 
