@@ -231,8 +231,8 @@ const sourcesConfig = [
                 date: new Date(article.pubDate),
                 imageUrl: article.thumbnail || '',
                 stats: {
-                    reactions: 0, // Medium API doesn't provide reactions
-                    comments: 0, // Medium API doesn't provide comments
+                    reactions: 0,
+                    comments: 0,
                 },
             };
         },
@@ -379,14 +379,14 @@ function createCard(item) {
     `;
 
     const imageHtml = item.imageUrl
-        ? `<div class="relative overflow-hidden rounded-lg mb-4 aspect-video">
+        ? `<a href="${item.url}" target="_blank"><div class="relative overflow-hidden rounded-lg mb-4 aspect-video">
             <img
                 src="${item.imageUrl}"
                 alt="${item.title}"
                 class="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                 onerror="this.parentElement.style.display='none';"
             />
-           </div>`
+           </div></a>`
         : '';
 
     const statsHtml = renderStats(item);
@@ -641,11 +641,11 @@ function closeFiltersModal() {
 }
 
 function handleScroll() {
-    const scrollBtn = document.getElementById('scrollToTopBtn');
+    const scrollBtn = document.getElementById('mobileScrollToTop');
     if (window.scrollY > 500) {
-        scrollBtn.classList.remove('hidden');
+        scrollBtn?.classList.remove('hidden');
     } else {
-        scrollBtn.classList.add('hidden');
+        scrollBtn?.classList.add('hidden');
     }
 }
 
@@ -655,6 +655,14 @@ function scrollToTop() {
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', async () => {
+    // Focus search input immediately with a small delay
+    setTimeout(() => {
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.focus();
+        }
+    }, 100);
+
     loadThemePreference();
     loadSettings();
     await initData();
@@ -666,16 +674,39 @@ document.addEventListener('DOMContentLoaded', async () => {
         saveThemePreference(!isDark);
     });
 
+    // Setup mobile theme toggle
+    document.getElementById('mobileThemeToggle').addEventListener('click', () => {
+        const isDark = document.documentElement.classList.contains('dark');
+        saveThemePreference(!isDark);
+    });
+
     // Setup other UI elements
     document.getElementById('refreshButton').addEventListener('click', resetAndRefetch);
+    document.getElementById('mobileRefreshButton').addEventListener('click', resetAndRefetch);
     document.getElementById('openFilters').addEventListener('click', openFiltersModal);
+    document.getElementById('mobileOpenFilters').addEventListener('click', openFiltersModal);
     document.getElementById('closeFilters').addEventListener('click', closeFiltersModal);
     document.getElementById('applyFiltersBtn').addEventListener('click', applyFilters);
     document.getElementById('cancelFiltersBtn').addEventListener('click', closeFiltersModal);
 
     // Setup scroll to top
     window.addEventListener('scroll', handleScroll);
-    document.getElementById('scrollToTopBtn').addEventListener('click', scrollToTop);
+    document.getElementById('mobileScrollToTop').addEventListener('click', scrollToTop);
+
+    // Setup search form
+    const searchForm = document.getElementById('searchForm');
+    if (searchForm) {
+        searchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const input = document.getElementById('searchInput');
+            if (input && input.value.trim()) {
+                window.open(
+                    `https://www.google.com/search?q=${encodeURIComponent(input.value)}`,
+                    '_blank'
+                );
+            }
+        });
+    }
 });
 
 // Helper functions
