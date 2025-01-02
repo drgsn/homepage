@@ -27,6 +27,7 @@ export class HackerNewsApi {
             url: story.url || `https://news.ycombinator.com/item?id=${story.id}`,
             date: new Date(story.time * 1000),
             imageUrl: '',
+            id: story.id, 
             stats: {
                 points: story.score,
                 comments: story.descendants || 0,

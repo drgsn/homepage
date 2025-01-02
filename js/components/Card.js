@@ -10,6 +10,15 @@ export class Card {
         `;
 
         card.innerHTML = this.generateCardHTML(item);
+
+        // Only add click handler if the click target is the card itself
+        card.addEventListener('click', (e) => {
+            // Don't trigger if clicking on a link
+            if (e.target.tagName !== 'A') {
+                window.open(item.url, '_blank');
+            }
+        });
+
         return card;
     }
 
@@ -25,13 +34,30 @@ export class Card {
 
             ${imageHtml}
 
-            <a href="${item.url}" 
-               target="_blank"
-               class="block font-semibold text-lg mb-3 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                ${item.title}
-            </a>
+            <div class="flex justify-between items-start">
+                <a href="${item.url}" 
+                   target="_blank"
+                   class="block font-semibold text-lg mb-3 hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex-1"
+                   onclick="event.stopPropagation();">
+                    ${item.title}
+                </a>
+            </div>
+            
+            ${
+                item.source === 'HackerNews' && item.id
+                    ? `
+                <a href="https://news.ycombinator.com/item?id=${item.id}"
+                   target="_blank"
+                   class="mt-3 inline-flex items-center gap-2 text-sm text-orange-500 hover:text-orange-600 dark:text-orange-400 dark:hover:text-orange-500"
+                   onclick="event.stopPropagation();">
+                    <i class="fa-regular fa-comment"></i>
+                    View Discussion on Hacker News
+                </a>
+            `
+                    : ''
+            }
 
-            <div class="flex flex-col space-y-3">
+            <div class="flex flex-col space-y-3 mt-3">
                 <div class="text-sm text-gray-500 dark:text-gray-400">
                     ${dayjs(item.date).fromNow()}
                 </div>
@@ -43,7 +69,7 @@ export class Card {
     static generateImageHTML(item) {
         return item.imageUrl
             ? `
-            <a href="${item.url}" target="_blank">
+            <a href="${item.url}" target="_blank" onclick="event.stopPropagation();">
                 <div class="relative overflow-hidden rounded-lg mb-4 aspect-video">
                     <img
                         src="${item.imageUrl}"
@@ -113,9 +139,18 @@ export class Card {
     }
 
     static getSourceIcon(sourceName) {
-        const source = sourcesConfig.find(
-            (src) => src.label.toLowerCase() === sourceName.toLowerCase()
-        );
+        // Normalize sourceName for comparison
+        const normalizedName = sourceName.toLowerCase().replace(/\s+/g, '');
+
+        const source = sourcesConfig.find((src) => {
+            // Normalize source label for comparison
+            const normalizedLabel = src.label.toLowerCase().replace(/\s+/g, '');
+            return (
+                normalizedLabel === normalizedName ||
+                (normalizedName === 'hackernews' && normalizedLabel === 'hackernews')
+            );
+        });
+
         return source ? source.icon : '';
     }
 }

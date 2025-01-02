@@ -19,34 +19,30 @@ function handleSearch(value, history) {
     const siteSearchUrl = handleSiteSearch(value);
     if (siteSearchUrl) {
         history.add(value);
-        window.open(siteSearchUrl);
+        window.location.href = siteSearchUrl;
         return true;
     }
 
     // Stricter URL validation
-    // Only treat as URL if:
-    // 1. It starts with http:// or https://, or
-    // 2. It matches a domain pattern AND contains a valid TLD
-    const isValidUrl =
-        value.startsWith('http://') ||
-        value.startsWith('https://') ||
-        // Must contain no spaces
-        (!value.includes(' ') &&
-            // Must match domain pattern
-            /^[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}/.test(value) &&
-            // Must end with common TLD
-            /\.(com|org|net|edu|gov|mil|biz|info|io|dev|me)$/i.test(value));
-
+    const isValidUrl = (value) => {
+        // Trim leading and trailing whitespace
+        value = value.trim();
+        // Regular expression to match full URLs
+        const urlPattern =
+            /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+([a-zA-Z]{2,}|[0-9]{1,3}(\.[0-9]{1,3}){3})(:[0-9]+)?(\/[^\s?#]*)?(\?[^\s#]*)?(#[^\s]*)?$/i;
+        // Test the value against the URL pattern
+        return urlPattern.test(value) && !value.includes(' ');
+    };
     if (isValidUrl) {
         const url = value.startsWith('http') ? value : `https://${value}`;
         history.add(value);
-        window.open(url, '_blank');
+        window.location.href = url;
         return true;
     }
 
     // Default to Google search for everything else
     history.add(value);
-    window.open(`https://www.google.com/search?q=${encodeURIComponent(value)}`);
+    window.location.href = `https://www.google.com/search?q=${encodeURIComponent(value)}`;
     return true;
 }
 
@@ -65,7 +61,7 @@ export function initializeSearch() {
             const [command] = query.split(' ');
             const commandHandler = new CommandHandler();
             commandHandler.handle(command);
-            searchInput.value = ''; // Clear input after command
+            searchInput.value = '';
             autocomplete.hide();
             return;
         }
