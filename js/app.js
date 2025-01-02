@@ -5,6 +5,7 @@ import { sourcesConfig } from './config/sourceConfig.js';
 import { DevToApi } from './services/api/devToApi.js';
 import { GitHubApi } from './services/api/githubApi.js';
 import { HackerNewsApi } from './services/api/hackerNewsApi.js';
+import { RssApi } from './services/api/RssApi.js';
 import { StorageService } from './services/storageService.js';
 import { ThemeService } from './services/themeService.js';
 
@@ -74,16 +75,109 @@ export class App {
 
     async initData() {
         try {
+            // 1. First, immediately load and display cached content
             const cachedArticles = StorageService.loadArticles();
             if (cachedArticles) {
                 this.allItems = cachedArticles;
                 this.renderFeed();
             }
-            await this.fetchAllEnabledSources();
+
+            // 2. Then start background fetches
+            this.fetchAllSourcesInBackground();
         } catch (error) {
             console.error('Error initializing data:', error);
             this.showError('Failed to load initial data');
         }
+    }
+
+    async fetchAllSourcesInBackground() {
+        // Start with main sources that typically have faster APIs
+        const mainSourcesPromise = this.fetchMainSources();
+
+        // Fetch RSS feeds separately to not block the main sources
+        const rssSourcesPromise = this.fetchRssSources();
+
+        try {
+            // Wait for main sources first
+            const mainResults = await mainSourcesPromise;
+            this.processNewItems(mainResults.flat());
+
+            // Then handle RSS feeds as they come in
+            const rssResults = await rssSourcesPromise;
+            this.processNewItems(rssResults.flat());
+        } catch (error) {
+            console.error('Error in background fetches:', error);
+            // Don't show error to user since we already have cached content
+        }
+    }
+
+    async fetchMainSources() {
+        const fetchPromises = [];
+
+        // GitHub
+        if (this.sourcesSettings.github?.enabled) {
+            const settings = this.sourcesSettings.github;
+            const languages = this.parseLanguages(settings.language);
+
+            const languagePromises = (languages.length > 0 ? languages : [null]).map(
+                async (language) => {
+                    const items = await GitHubApi.fetchRepositories(settings, language);
+                    return items.map((item) => GitHubApi.transformResponse(item));
+                }
+            );
+
+            fetchPromises.push(...languagePromises);
+            settings.page += 1;
+        }
+
+        // HackerNews
+        if (this.sourcesSettings.hackernews?.enabled) {
+            const settings = this.sourcesSettings.hackernews;
+            if (!settings.ids || settings.ids.length === 0) {
+                settings.ids = await HackerNewsApi.fetchStoryIds(settings.type);
+                settings.index = 0;
+            }
+            const items = await HackerNewsApi.fetchStories(settings);
+            fetchPromises.push(
+                Promise.resolve(items.map((item) => HackerNewsApi.transformResponse(item)))
+            );
+        }
+
+        // Dev.to
+        if (this.sourcesSettings.devto?.enabled) {
+            const settings = this.sourcesSettings.devto;
+            const items = await DevToApi.fetchArticles(settings);
+            fetchPromises.push(
+                Promise.resolve(items.map((item) => DevToApi.transformResponse(item)))
+            );
+            settings.page += 1;
+        }
+
+        return Promise.all(fetchPromises);
+    }
+
+    async fetchRssSources() {
+        // Get all enabled RSS sources
+        const rssSourcePromises = sourcesConfig
+            .filter(
+                (source) =>
+                    source.defaultSettings.feedUrl && this.sourcesSettings[source.id]?.enabled
+            )
+            .map(async (source) => {
+                try {
+                    const items = await RssApi.fetchArticles(source.defaultSettings.feedUrl);
+                    return items.map((item) => RssApi.transformResponse(item, source.label));
+                } catch (error) {
+                    console.error(`Error fetching ${source.label} RSS feed:`, error);
+                    return [];
+                }
+            });
+
+        // Use Promise.allSettled to handle individual RSS feed failures
+        const results = await Promise.allSettled(rssSourcePromises);
+        return results
+            .filter((result) => result.status === 'fulfilled')
+            .map((result) => result.value);
     }
 
     setupIntersectionObserver() {
@@ -94,7 +188,7 @@ export class App {
             async (entries) => {
                 if (entries[0].isIntersecting && !this.isLoading) {
                     try {
-                        await this.fetchAllEnabledSources();
+                        await this.fetchAllSourcesInBackground();
                     } catch (error) {
                         console.error('Error loading more items:', error);
                     }
@@ -108,82 +202,6 @@ export class App {
         this.observer.observe(sentinel);
     }
 
-    async fetchAllEnabledSources() {
-        if (this.isLoading) return;
-
-        // Cancel any existing fetch
-        if (this.currentFetchController) {
-            this.currentFetchController.abort();
-        }
-
-        this.isLoading = true;
-        this.showLoadingIndicator();
-        this.currentFetchController = new AbortController();
-
-        try {
-            const fetchPromises = [];
-            const signal = this.currentFetchController.signal;
-
-            // GitHub
-            if (this.sourcesSettings.github?.enabled) {
-                const settings = this.sourcesSettings.github;
-                const languages = this.parseLanguages(settings.language);
-
-                const languagePromises = (languages.length > 0 ? languages : [null]).map(
-                    async (language) => {
-                        const items = await GitHubApi.fetchRepositories(settings, language, signal);
-                        return items.map((item) => GitHubApi.transformResponse(item));
-                    }
-                );
-
-                fetchPromises.push(...languagePromises);
-                settings.page += 1;
-            }
-
-            // HackerNews
-            if (this.sourcesSettings.hackernews?.enabled) {
-                const settings = this.sourcesSettings.hackernews;
-                if (!settings.ids || settings.ids.length === 0) {
-                    settings.ids = await HackerNewsApi.fetchStoryIds(settings.type, signal);
-                    settings.index = 0;
-                }
-                const items = await HackerNewsApi.fetchStories(settings, signal);
-                fetchPromises.push(
-                    Promise.resolve(items.map((item) => HackerNewsApi.transformResponse(item)))
-                );
-            }
-
-            // Dev.to
-            if (this.sourcesSettings.devto?.enabled) {
-                const settings = this.sourcesSettings.devto;
-                const items = await DevToApi.fetchArticles(settings, signal);
-                fetchPromises.push(
-                    Promise.resolve(items.map((item) => DevToApi.transformResponse(item)))
-                );
-                settings.page += 1;
-            }
-
-            const results = await Promise.allSettled(fetchPromises);
-            const successfulResults = results
-                .filter((result) => result.status === 'fulfilled')
-                .map((result) => result.value)
-                .flat();
-
-            this.processNewItems(successfulResults);
-        } catch (error) {
-            if (error.name === 'AbortError') {
-                console.log('Fetch aborted');
-            } else {
-                console.error('Error fetching data:', error);
-                this.showError('Failed to fetch new items');
-            }
-        } finally {
-            this.isLoading = false;
-            this.hideLoadingIndicator();
-            this.currentFetchController = null;
-        }
-    }
-
     parseLanguages(languageString) {
         if (!languageString) return [];
         return languageString
@@ -193,7 +211,7 @@ export class App {
     }
 
     processNewItems(newItems) {
-        // Filter out duplicates
+        // Filter out duplicates using URL as unique identifier
         const uniqueNewItems = newItems.filter(
             (newItem) => !this.allItems.some((existingItem) => existingItem.url === newItem.url)
         );
@@ -222,9 +240,6 @@ export class App {
             .sort((a, b) => b.date - a.date)
             .forEach((item) => {
                 const cardElement = Card.create(item);
-                cardElement.addEventListener('click', () => {
-                    window.open(item.url, '_blank');
-                });
                 fragment.appendChild(cardElement);
             });
 
@@ -384,7 +399,8 @@ export class App {
         if (container) container.innerHTML = '';
 
         this.showLoadingIndicator();
-        await this.fetchAllEnabledSources();
+        await this.fetchAllSourcesInBackground();
+        this.hideLoadingIndicator();
     }
 
     applyFilters() {

@@ -95,6 +95,26 @@ export class Card {
             case 'Dev.to':
                 return this.generateDevToStats(item, baseClasses, iconClasses);
             default:
+                // For RSS feeds, show author if available
+                if (item.author) {
+                    return `
+                        <div class="${baseClasses}">
+                            <span class="flex items-center">
+                                <i class="fa-solid fa-user ${iconClasses} mr-2"></i>${item.author}
+                            </span>
+                            ${
+                                item.categories && item.categories.length
+                                    ? `
+                                <span class="flex items-center">
+                                    <i class="fa-solid fa-tags ${iconClasses} mr-2"></i>${item.categories
+                                          .slice(0, 3)
+                                          .join(', ')}
+                                </span>
+                            `
+                                    : ''
+                            }
+                        </div>`;
+                }
                 return '';
         }
     }
