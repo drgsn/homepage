@@ -1,14 +1,21 @@
 export class CommandHandler {
     constructor() {
-        // Bind the methods to preserve 'this' context
-        this.showHelp = this.showHelp.bind(this);
-
+        // Define available commands and their handlers
         this.commands = {
-            '!help': this.showHelp,
+            '!help': this.showHelp.bind(this),
             '!settings': () => document.getElementById('openFilters')?.click(),
             '!refresh': () => document.getElementById('refreshButton')?.click(),
             '!theme': () => document.getElementById('themeToggle')?.click(),
             '!top': () => window.scrollTo({ top: 0, behavior: 'smooth' }),
+        };
+
+        // Command descriptions for help and suggestions
+        this.commandDescriptions = {
+            '!help': 'Show this help menu',
+            '!settings': 'Open feed settings',
+            '!refresh': 'Refresh the feed',
+            '!theme': 'Toggle dark/light theme',
+            '!top': 'Scroll to top',
         };
     }
 
@@ -21,14 +28,23 @@ export class CommandHandler {
         return false;
     }
 
+    getCommandSuggestions(input) {
+        input = input.toLowerCase();
+        return Object.keys(this.commands)
+            .filter((cmd) => cmd.toLowerCase().startsWith(input))
+            .map((cmd) => ({
+                query: cmd,
+                type: 'command',
+                description: this.commandDescriptions[cmd],
+                icon: 'fa-terminal',
+            }));
+    }
+
     showHelp() {
-        const commands = [
-            { command: '!help', description: 'Show this help menu' },
-            { command: '!settings', description: 'Open feed settings' },
-            { command: '!refresh', description: 'Refresh the feed' },
-            { command: '!theme', description: 'Toggle dark/light theme' },
-            { command: '!top', description: 'Scroll to top' },
-        ];
+        const commands = Object.entries(this.commandDescriptions).map(([command, description]) => ({
+            command,
+            description,
+        }));
 
         const siteCommands = [
             { prefix: 'youtube:', alias: 'yt:', description: 'Search YouTube' },
@@ -50,10 +66,10 @@ export class CommandHandler {
         const modal = document.createElement('div');
         modal.className =
             'fixed inset-0 bg-black/40 dark:bg-black/60 z-50 flex justify-center items-center modal-backdrop';
-
         modal.innerHTML = this.generateHelpModalContent(commands, siteCommands);
         document.body.appendChild(modal);
 
+        // Handle modal closing
         const closeModal = () => modal.remove();
         modal.querySelector('#closeHelpModal')?.addEventListener('click', closeModal);
         modal.addEventListener('click', (e) => {
