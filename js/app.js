@@ -14,14 +14,30 @@ export class App {
         this.sourcesSettings = {};
         this.observer = null;
         this.isLoading = false;
+        this.currentFetchController = null;
+        this.debounceTimeout = null;
     }
 
     async init() {
-        // Initialize components
-        this.loadInitialSettings();
-        await this.initData();
-        this.setupIntersectionObserver();
-        this.setupEventListeners();
+        try {
+            this.loadInitialSettings();
+            await this.initData();
+            this.setupIntersectionObserver();
+            this.setupEventListeners();
+        } catch (error) {
+            console.error('Failed to initialize app:', error);
+            this.showError('Failed to initialize application');
+        }
+    }
+
+    cleanup() {
+        if (this.observer) {
+            this.observer.disconnect();
+        }
+        if (this.currentFetchController) {
+            this.currentFetchController.abort();
+        }
+        clearTimeout(this.debounceTimeout);
     }
 
     loadInitialSettings() {
@@ -31,7 +47,8 @@ export class App {
     }
 
     focusSearchInput() {
-        setTimeout(() => {
+        clearTimeout(this.debounceTimeout);
+        this.debounceTimeout = setTimeout(() => {
             const searchInput = document.getElementById('searchInput');
             if (searchInput) {
                 searchInput.focus();
@@ -44,32 +61,43 @@ export class App {
         if (storedSettings) {
             this.sourcesSettings = storedSettings;
         } else {
-            sourcesConfig.forEach((source) => {
-                this.sourcesSettings[source.id] = { ...source.defaultSettings };
-            });
-            StorageService.saveSettings(this.sourcesSettings);
+            this.initializeDefaultSettings();
         }
     }
 
-    async initData() {
-        // Load cached articles if they exist
-        const cachedArticles = StorageService.loadArticles();
-        if (cachedArticles) {
-            this.allItems = cachedArticles;
-            this.renderFeed();
-        }
+    initializeDefaultSettings() {
+        sourcesConfig.forEach((source) => {
+            this.sourcesSettings[source.id] = { ...source.defaultSettings };
+        });
+        StorageService.saveSettings(this.sourcesSettings);
+    }
 
-        // Fetch new articles
-        await this.fetchAllEnabledSources();
+    async initData() {
+        try {
+            const cachedArticles = StorageService.loadArticles();
+            if (cachedArticles) {
+                this.allItems = cachedArticles;
+                this.renderFeed();
+            }
+            await this.fetchAllEnabledSources();
+        } catch (error) {
+            console.error('Error initializing data:', error);
+            this.showError('Failed to load initial data');
+        }
     }
 
     setupIntersectionObserver() {
         const sentinel = document.getElementById('infiniteScrollTrigger');
+        if (!sentinel) return;
+
         this.observer = new IntersectionObserver(
             async (entries) => {
                 if (entries[0].isIntersecting && !this.isLoading) {
-                    await this.fetchAllEnabledSources();
-                    this.renderFeed();
+                    try {
+                        await this.fetchAllEnabledSources();
+                    } catch (error) {
+                        console.error('Error loading more items:', error);
+                    }
                 }
             },
             {
@@ -82,23 +110,28 @@ export class App {
 
     async fetchAllEnabledSources() {
         if (this.isLoading) return;
+
+        // Cancel any existing fetch
+        if (this.currentFetchController) {
+            this.currentFetchController.abort();
+        }
+
         this.isLoading = true;
         this.showLoadingIndicator();
+        this.currentFetchController = new AbortController();
 
         try {
             const fetchPromises = [];
+            const signal = this.currentFetchController.signal;
 
             // GitHub
             if (this.sourcesSettings.github?.enabled) {
                 const settings = this.sourcesSettings.github;
-                const languages = settings.language
-                    .split(',')
-                    .map((lang) => lang.trim().toLowerCase())
-                    .filter(Boolean);
-
+                const languages = this.parseLanguages(settings.language);
+                
                 const languagePromises = (languages.length > 0 ? languages : [null]).map(
                     async (language) => {
-                        const items = await GitHubApi.fetchRepositories(settings, language);
+                        const items = await GitHubApi.fetchRepositories(settings, language, signal);
                         return items.map((item) => GitHubApi.transformResponse(item));
                     }
                 );
@@ -111,10 +144,10 @@ export class App {
             if (this.sourcesSettings.hackernews?.enabled) {
                 const settings = this.sourcesSettings.hackernews;
                 if (!settings.ids || settings.ids.length === 0) {
-                    settings.ids = await HackerNewsApi.fetchStoryIds(settings.type);
+                    settings.ids = await HackerNewsApi.fetchStoryIds(settings.type, signal);
                     settings.index = 0;
                 }
-                const items = await HackerNewsApi.fetchStories(settings);
+                const items = await HackerNewsApi.fetchStories(settings, signal);
                 fetchPromises.push(
                     Promise.resolve(items.map((item) => HackerNewsApi.transformResponse(item)))
                 );
@@ -123,50 +156,76 @@ export class App {
             // Dev.to
             if (this.sourcesSettings.devto?.enabled) {
                 const settings = this.sourcesSettings.devto;
-                const items = await DevToApi.fetchArticles(settings);
+                const items = await DevToApi.fetchArticles(settings, signal);
                 fetchPromises.push(
                     Promise.resolve(items.map((item) => DevToApi.transformResponse(item)))
                 );
                 settings.page += 1;
             }
 
-            const results = await Promise.all(fetchPromises);
-            const newItems = results.flat();
+            const results = await Promise.allSettled(fetchPromises);
+            const successfulResults = results
+                .filter((result) => result.status === 'fulfilled')
+                .map((result) => result.value)
+                .flat();
 
-            // Filter out duplicates
-            const uniqueNewItems = newItems.filter(
-                (newItem) => !this.allItems.some((existingItem) => existingItem.url === newItem.url)
-            );
-
-            if (uniqueNewItems.length > 0) {
-                this.allItems.push(...uniqueNewItems);
-
-                // Ensure we don't exceed MAX_CACHED_ARTICLES
-                if (this.allItems.length > MAX_CACHED_ARTICLES) {
-                    this.allItems.sort((a, b) => b.date - a.date);
-                    this.allItems = this.allItems.slice(0, MAX_CACHED_ARTICLES);
-                }
-
-                StorageService.saveArticles(this.allItems);
-                this.renderFeed();
-            }
+            this.processNewItems(successfulResults);
         } catch (error) {
-            console.error('Error fetching data:', error);
+            if (error.name === 'AbortError') {
+                console.log('Fetch aborted');
+            } else {
+                console.error('Error fetching data:', error);
+                this.showError('Failed to fetch new items');
+            }
         } finally {
             this.isLoading = false;
             this.hideLoadingIndicator();
+            this.currentFetchController = null;
+        }
+    }
+
+    parseLanguages(languageString) {
+        if (!languageString) return [];
+        return languageString
+            .split(',')
+            .map((lang) => lang.trim().toLowerCase())
+            .filter(Boolean);
+    }
+
+    processNewItems(newItems) {
+        // Filter out duplicates
+        const uniqueNewItems = newItems.filter(
+            (newItem) => !this.allItems.some((existingItem) => existingItem.url === newItem.url)
+        );
+
+        if (uniqueNewItems.length > 0) {
+            this.allItems.push(...uniqueNewItems);
+
+            // Ensure we don't exceed MAX_CACHED_ARTICLES
+            if (this.allItems.length > MAX_CACHED_ARTICLES) {
+                this.allItems.sort((a, b) => b.date - a.date);
+                this.allItems = this.allItems.slice(0, MAX_CACHED_ARTICLES);
+            }
+
+            StorageService.saveArticles(this.allItems);
+            this.renderFeed();
         }
     }
 
     renderFeed() {
         const container = document.getElementById('feedContainer');
-        container.innerHTML = '';
+        if (!container) return;
 
+        const fragment = document.createDocumentFragment();
+        
         this.allItems
             .sort((a, b) => b.date - a.date)
             .forEach((item) => {
-                container.appendChild(Card.create(item));
+                fragment.appendChild(Card.create(item));
             });
+
+        container.innerHTML = '';
+        container.appendChild(fragment);
     }
 
     showLoadingIndicator() {
@@ -179,49 +238,88 @@ export class App {
         indicator?.classList.add('hidden');
     }
 
+    showError(message) {
+        // Create error notification if it doesn't exist
+        let errorNotification = document.getElementById('errorNotification');
+        if (!errorNotification) {
+            errorNotification = document.createElement('div');
+            errorNotification.id = 'errorNotification';
+            errorNotification.className = `
+                fixed bottom-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg
+                transform transition-transform duration-300 translate-y-full
+                flex items-center space-x-3
+            `;
+            document.body.appendChild(errorNotification);
+        }
+
+        errorNotification.innerHTML = `
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span>${message}</span>
+        `;
+
+        // Show notification
+        requestAnimationFrame(() => {
+            errorNotification.style.transform = 'translateY(0)';
+        });
+
+        // Hide after 5 seconds
+        setTimeout(() => {
+            errorNotification.style.transform = 'translateY(100%)';
+            setTimeout(() => {
+                errorNotification.remove();
+            }, 300);
+        }, 5000);
+    }
+
     setupEventListeners() {
         // Theme toggle
-        document.getElementById('themeToggle')?.addEventListener('click', () => {
-            ThemeService.toggleTheme();
-        });
-
-        document.getElementById('mobileThemeToggle')?.addEventListener('click', () => {
-            ThemeService.toggleTheme();
-        });
+        this.setupThemeToggle();
 
         // Refresh
-        document.getElementById('refreshButton')?.addEventListener('click', () => {
-            this.resetAndRefetch();
-        });
-
-        document.getElementById('mobileRefreshButton')?.addEventListener('click', () => {
-            this.resetAndRefetch();
-        });
+        this.setupRefreshButtons();
 
         // Filters
-        document.getElementById('openFilters')?.addEventListener('click', () => {
-            FiltersModal.build();
-            FiltersModal.show();
-        });
-
-        document.getElementById('mobileOpenFilters')?.addEventListener('click', () => {
-            FiltersModal.build();
-            FiltersModal.show();
-        });
-
-        document.getElementById('closeFilters')?.addEventListener('click', () => {
-            FiltersModal.hide();
-        });
-
-        document.getElementById('cancelFiltersBtn')?.addEventListener('click', () => {
-            FiltersModal.hide();
-        });
-
-        document.getElementById('applyFiltersBtn')?.addEventListener('click', () => {
-            this.applyFilters();
-        });
+        this.setupFilterButtons();
 
         // Search
+        this.setupSearchForm();
+
+        // Scroll to top
+        this.setupScrollToTop();
+
+        // Scroll handler
+        this.setupScrollHandler();
+
+        // Cleanup on page unload
+        window.addEventListener('unload', () => this.cleanup());
+    }
+
+    setupThemeToggle() {
+        const toggleTheme = () => ThemeService.toggleTheme();
+        document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
+        document.getElementById('mobileThemeToggle')?.addEventListener('click', toggleTheme);
+    }
+
+    setupRefreshButtons() {
+        const refresh = () => this.resetAndRefetch();
+        document.getElementById('refreshButton')?.addEventListener('click', refresh);
+        document.getElementById('mobileRefreshButton')?.addEventListener('click', refresh);
+    }
+
+    setupFilterButtons() {
+        const openFilters = () => {
+            FiltersModal.build();
+            FiltersModal.show();
+        };
+
+        document.getElementById('openFilters')?.addEventListener('click', openFilters);
+        document.getElementById('mobileOpenFilters')?.addEventListener('click', openFilters);
+        document.getElementById('closeFilters')?.addEventListener('click', () => FiltersModal.hide());
+        document.getElementById('cancelFiltersBtn')?.addEventListener('click', () => FiltersModal.hide());
+        document.getElementById('applyFiltersBtn')?.addEventListener('click', () => this.applyFilters());
+    }
+
+    setupSearchForm() {
         document.getElementById('searchForm')?.addEventListener('submit', (e) => {
             e.preventDefault();
             const input = document.getElementById('searchInput');
@@ -232,20 +330,29 @@ export class App {
                 );
             }
         });
+    }
 
-        // Scroll to top
+    setupScrollToTop() {
         document.getElementById('mobileScrollToTop')?.addEventListener('click', () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         });
+    }
 
-        // Scroll handler
+    setupScrollHandler() {
+        const scrollBtn = document.getElementById('mobileScrollToTop');
+        if (!scrollBtn) return;
+
+        let scrollTimeout;
         window.addEventListener('scroll', () => {
-            const scrollBtn = document.getElementById('mobileScrollToTop');
-            if (window.scrollY > 500) {
-                scrollBtn?.classList.remove('hidden');
-            } else {
-                scrollBtn?.classList.add('hidden');
-            }
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                const scrollThreshold = window.innerHeight * 0.5;
+                if (window.scrollY > scrollThreshold) {
+                    scrollBtn.classList.remove('hidden');
+                } else {
+                    scrollBtn.classList.add('hidden');
+                }
+            }, 100);
         });
     }
 
@@ -264,12 +371,10 @@ export class App {
             }
         });
 
-        // Clear the feed and show loading
         const container = document.getElementById('feedContainer');
         if (container) container.innerHTML = '';
+        
         this.showLoadingIndicator();
-
-        // Fetch new data
         await this.fetchAllEnabledSources();
     }
 
@@ -285,6 +390,7 @@ export class App {
             this.sourcesSettings[source.id] = {
                 ...this.sourcesSettings[source.id],
                 ...settings,
+                page: 1 // Reset page number when applying filters
             };
         });
 
