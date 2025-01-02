@@ -1,6 +1,16 @@
 // Initialize dayjs relative time plugin
 dayjs.extend(dayjs_plugin_relativeTime);
 
+// Constants
+const STORAGE_KEY = 'mergedFeedArticles';
+const STORAGE_TIMESTAMP_KEY = 'mergedFeedLastUpdate';
+const MAX_CACHED_ARTICLES = 100;
+
+// Global state
+let sourcesSettings = {};
+let allItems = [];
+let observer = null;
+
 // Sources configuration
 const sourcesConfig = [
     {
@@ -240,10 +250,38 @@ const sourcesConfig = [
     },
 ];
 
-// Global state
-let sourcesSettings = {};
-let allItems = [];
-let observer = null;
+// Local storage management
+function saveArticlesToStorage() {
+    try {
+        // Sort by date (newest first) and limit to MAX_CACHED_ARTICLES
+        const articlesToCache = [...allItems]
+            .sort((a, b) => b.date - a.date)
+            .slice(0, MAX_CACHED_ARTICLES);
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(articlesToCache));
+        localStorage.setItem(STORAGE_TIMESTAMP_KEY, new Date().toISOString());
+    } catch (error) {
+        console.error('Error saving articles to localStorage:', error);
+    }
+}
+
+function loadArticlesFromStorage() {
+    try {
+        const storedArticles = localStorage.getItem(STORAGE_KEY);
+        const lastUpdate = localStorage.getItem(STORAGE_TIMESTAMP_KEY);
+
+        if (storedArticles && lastUpdate) {
+            allItems = JSON.parse(storedArticles).map((item) => ({
+                ...item,
+                date: new Date(item.date), // Convert date strings back to Date objects
+            }));
+            return true;
+        }
+    } catch (error) {
+        console.error('Error loading articles from localStorage:', error);
+    }
+    return false;
+}
 
 // Theme management
 function loadThemePreference() {
@@ -507,20 +545,30 @@ async function fetchAllEnabledSources() {
                 const items = await source.fetchFn(sourcesSettings[source.id]);
 
                 if (items.length === 0) {
-                    // No more items to fetch for this source
                     return;
                 }
 
                 const transformedItems = items
-                    .filter((item) => item) // Filter out null/undefined items
+                    .filter((item) => item)
                     .map((item) => source.transformItemFn(item));
 
-                // Filter out duplicates
+                // Filter out duplicates based on URL
                 const newItems = transformedItems.filter((newItem) => {
                     return !allItems.some((existingItem) => existingItem.url === newItem.url);
                 });
 
-                allItems.push(...newItems);
+                if (newItems.length > 0) {
+                    allItems.push(...newItems);
+
+                    // Ensure we don't exceed MAX_CACHED_ARTICLES in memory
+                    if (allItems.length > MAX_CACHED_ARTICLES) {
+                        allItems.sort((a, b) => b.date - a.date);
+                        allItems = allItems.slice(0, MAX_CACHED_ARTICLES);
+                    }
+
+                    // Save to localStorage
+                    saveArticlesToStorage();
+                }
             } catch (error) {
                 console.error(`Error fetching from ${source.label}:`, error);
             } finally {
@@ -533,8 +581,18 @@ async function fetchAllEnabledSources() {
 
 // Feed management
 async function initData() {
+    // First load cached articles if they exist
+    const hasCachedArticles = loadArticlesFromStorage();
+    if (hasCachedArticles) {
+        renderMergedFeed();
+    }
+
+    // Then fetch new articles
     await maybeFetchHackerNewsIDs();
     await fetchAllEnabledSources();
+
+    // Save to localStorage and re-render
+    saveArticlesToStorage();
     renderMergedFeed();
 }
 
@@ -597,15 +655,28 @@ function applyFilters() {
 }
 
 async function resetAndRefetch() {
-    allItems = []; // Clear the existing items
+    // Clear both memory and storage
+    allItems = [];
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_TIMESTAMP_KEY);
+
+    // Reset all source indexes/pages
     sourcesConfig.forEach((source) => {
         if (source.id === 'hackernews') {
-            sourcesSettings[source.id].index = 0; // Reset Hacker News index
+            sourcesSettings[source.id].index = 0;
         } else {
-            sourcesSettings[source.id].page = 1; // Reset GitHub, Dev.to, and Medium page
+            sourcesSettings[source.id].page = 1;
         }
     });
-    await initData(); // Fetch new data
+
+    // Show loading indicator
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    if (loadingIndicator) {
+        loadingIndicator.classList.remove('hidden');
+    }
+
+    // Fetch new data
+    await initData();
 }
 
 function openFiltersModal() {
