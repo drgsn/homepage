@@ -5,7 +5,7 @@ import { sourcesConfig } from './config/sourceConfig.js';
 import { DevToApi } from './services/api/devToApi.js';
 import { GitHubApi } from './services/api/githubApi.js';
 import { HackerNewsApi } from './services/api/hackerNewsApi.js';
-import { RssApi } from './services/api/RssApi.js';
+import { RssApi } from './services/api/rssApi.js';
 import { StorageService } from './services/storageService.js';
 import { ThemeService } from './services/themeService.js';
 
