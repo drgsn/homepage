@@ -44,7 +44,7 @@ export class App {
     loadInitialSettings() {
         ThemeService.loadTheme();
         this.loadSettings();
-        this.focusSearchInput();
+        // this.focusSearchInput();
     }
 
     focusSearchInput() {
